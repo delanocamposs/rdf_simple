@@ -737,7 +737,7 @@ bool compare_quad_pairing(const std::vector<float>p1_A,const std::vector<float>p
 	  return true;
 	}
 	else if ((p1_A[7]+p1_B[7])<(p2_A[7]+p2_B[7])) {
-	  return true; //should this be false?
+	  return false; //should this be false? - changed to false by delano aug. 8/29/25
 	} 
 	else if ((p1_A[7]+p1_B[7])==(p2_A[7]+p2_B[7])) {
 	  float p1_pt = (p1_A1+p1_A2).pt()+(p1_B1+p1_B2).pt();
@@ -1044,6 +1044,7 @@ RVecF best_4gamma_1bad(RVecF pt,RVecF eta, RVecF phi,RVec<bool> EB, RVec<bool> E
     ROOT::Math::PtEtaPhiMVector pc2(best_B[0],best_B[1],best_B[2],0.0);
     ROOT::Math::PtEtaPhiMVector pc3(best_B[3],best_B[4],best_B[5],0.0);
     result.emplace_back((pc0+pc1+pc2+pc3).M());
+	
     //indices of used photons
     result.emplace_back(gID[g1] && gIso[g1]<0.1);
     result.emplace_back(gID[g2] && gIso[g2]<0.1);

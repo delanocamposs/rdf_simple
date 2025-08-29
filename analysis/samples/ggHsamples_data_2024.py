@@ -1,0 +1,85 @@
+samples_data_2024 = {
+# double photon data 2024
+'EGamma0_2024C_v1':{'dataset':'/EGamma0/Run2024C-PromptReco-v1/NANOAOD',
+                    'triggers':['HLT_DoublePhoton33_CaloIdL'],
+                    'veto_triggers':[],
+                    'era': '2024',
+                    'jobs':16},                                                                                                                                            
+'EGamma1_2024C_v1':{'dataset':'/EGamma1/Run2024C-PromptReco-v1/NANOAOD',
+                    'triggers':['HLT_DoublePhoton33_CaloIdL'],
+                    'veto_triggers':[],
+                    'era': '2024',
+                    'jobs':16},
+
+'EGamma0_2024D_v1':{'dataset':'/EGamma0/Run2024D-PromptReco-v1/NANOAOD',
+                    'triggers':['HLT_DoublePhoton33_CaloIdL'],
+                    'veto_triggers':[],
+                    'era': '2024',
+                    'jobs':16},
+
+'EGamma1_2024D_v1':{'dataset':'/EGamma1/Run2024D-PromptReco-v1/NANOAOD',
+                    'triggers':['HLT_DoublePhoton33_CaloIdL'],
+                    'veto_triggers':[],
+                    'era': '2024',
+                    'jobs':16},
+
+'EGamma0_2024E_v2':{'dataset':'/EGamma0/Run2024E-PromptReco-v2/NANOAOD',
+                    'triggers':['HLT_DoublePhoton33_CaloIdL'],
+                    'veto_triggers':[],
+                    'era': '2024',
+                    'jobs':16},
+
+'EGamma1_2024E_v2':{'dataset':'/EGamma1/Run2024E-PromptReco-v2/NANOAOD',
+                    'triggers':['HLT_DoublePhoton33_CaloIdL'],
+                    'veto_triggers':[],
+                    'era': '2024',
+                    'jobs':16},
+
+'EGamma0_2024F_v1':{'dataset':'/EGamma0/Run2024F-PromptReco-v1/NANOAOD',
+                    'triggers':['HLT_DoublePhoton33_CaloIdL'],
+                    'veto_triggers':[],
+                    'era': '2024',
+                    'jobs':8},
+
+'EGamma1_2024F_v1':{'dataset':'/EGamma1/Run2024F-PromptReco-v1/NANOAOD',
+                    'triggers':['HLT_DoublePhoton33_CaloIdL'],
+                    'veto_triggers':[],
+                    'era': '2024',
+                    'jobs':16},
+
+'EGamma0_2024G_v1':{'dataset':'/EGamma0/Run2024G-PromptReco-v1/NANOAOD',
+                    'triggers':['HLT_DoublePhoton33_CaloIdL'],
+                    'veto_triggers':[],
+                    'era': '2024',
+                    'jobs':32},
+
+'EGamma1_2024G_v1':{'dataset':'/EGamma1/Run2024G-PromptReco-v1/NANOAOD',
+                    'triggers':['HLT_DoublePhoton33_CaloIdL'],
+                    'veto_triggers':[],
+                    'era': '2024',
+                    'jobs':32},
+
+'EGamma0_2024H_v1':{'dataset':'/EGamma0/Run2024H-PromptReco-v1/NANOAOD',
+                    'triggers':['HLT_DoublePhoton33_CaloIdL'],
+                    'veto_triggers':[],
+                    'era': '2024',
+                    'jobs':8},
+
+'EGamma1_2024H_v1':{'dataset':'/EGamma1/Run2024H-PromptReco-v1/NANOAOD',
+                    'triggers':['HLT_DoublePhoton33_CaloIdL'],
+                    'veto_triggers':[],
+                    'era': '2024',
+                    'jobs':16},
+
+'EGamma0_2024I_v2':{'dataset':'/EGamma0/Run2024I-PromptReco-v2/NANOAOD',
+                    'triggers':['HLT_DoublePhoton33_CaloIdL'],
+                    'veto_triggers':[],
+                    'era': '2024',
+                    'jobs':8},
+
+'EGamma1_2024I_v2':{'dataset':'/EGamma1/Run2024I-PromptReco-v2/NANOAOD',
+                    'triggers':['HLT_DoublePhoton33_CaloIdL'],
+                    'veto_triggers':[],
+                    'era': '2024',
+                    'jobs':16}
+}

@@ -8,7 +8,7 @@ parser = OptionParser()
 parser.add_option("-a", "--analysis", dest="analysis",
                   help="analysis to run",type='str',default='VH')
 
-parser.add_option("-o", "--eosdir", dest="eos",default='root://cmseos.fnal.gov//store/user/bachtis/analysis',
+parser.add_option("-o", "--eosdir", dest="eos",default='root://cmseos.fnal.gov//store/user/dacampos/analysis/data',
                   help="EOS output Directory")
 parser.add_option("-d", "--donotsubmit", dest="nosubmit",default=0,type=int,
                   help="Do not submit on condor, just show jobs")
@@ -38,7 +38,7 @@ def check_file(filename):
 
     
     
-os.system('tar --overwrite --exclude=".git" --exclude="common/__pycache__" --exclude="analysis/__pycache__"  -czvf /tmp/sandbox.tar.gz .')
+os.system('tar --overwrite --exclude=".git" --exclude="__pycache__" --exclude="common/__pycache__" --exclude="analysis/__pycache__"  -czvf /tmp/sandbox.tar.gz .')
 os.system('mv /tmp/sandbox.tar.gz .')
 
 

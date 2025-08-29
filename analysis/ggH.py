@@ -22,8 +22,7 @@ iso = {'2016': 'Photon_pfRelIso03_all',
        '2024': 'Photon_pfRelIso03_all_quadratic'
        }
 
-def get_ID_val(var):
-    ID_type="Custom"
+def get_ID_val(var, ID_type):
     cuts_ID={
             "EGM":{"endcap":{"iso":[0.1], 
                              "hoe":[0.0590], 
@@ -31,7 +30,7 @@ def get_ID_val(var):
                    "barrel":{"iso":[0.1], 
                              "hoe":[0.04596], 
                              "sieie":[0.0106]}},
-            "Custom":{"endcap":{"iso":[0.3], 
+            "custom":{"endcap":{"iso":[0.3], 
                                 "hoe":[0.2], 
                                 "sieie":[0.045]}, 
                       "barrel":{"iso":[0.25], 
@@ -41,24 +40,12 @@ def get_ID_val(var):
 
     return cuts_ID[ID_type]['barrel'][var][0], cuts_ID[ID_type]['endcap'][var][0]
 
-ID_dict1_ggH4g={
- 'Photon_preselection':'==1'}
-ID_dict2_ggH4g={
- 'Photon_IdNoIso':'==1'}
+#string to define the ID branch. easier than manually typing the mess into the phi mass loop.
+preselection_str = " && ".join(f"(Photon_preselection[raw_best_4g_m{{m}}[{i}]]==1)" for i in range(24,28))
+idnoiso_str = " && ".join(f"(Photon_IdNoIso[raw_best_4g_m{{m}}[{i}]]==1)" for i in range(24,28))
+iso_str = " && ".join(f"(Photon_PassPhIso[raw_best_4g_m{{m}}[{i}]]==1)" for i in range(24,28))
+best_4g_ID_str_ggH4g="{} && {} && {}".format(preselection_str, idnoiso_str, iso_str)
 
-iso1, iso2 =get_ID_val("iso")
-ID1_ggH4g = " && ".join(f"{branch}[raw_best_4g_m{{m}}[{i}]]{b}" for branch, b in ID_dict1_ggH4g.items() for i in range(24,28))
-ID2_ggH4g = " && ".join(f"{branch}[raw_best_4g_m{{m}}[{i}]]{b}" for branch, b in ID_dict2_ggH4g.items() for i in range(24,28))
-ID3_ggH4g = " && ".join(f"((Photon_isScEtaEB[raw_best_4g_m{{m}}[{i}]]==1 && Photon_corrIso_m{{m}}[raw_best_4g_m{{m}}[{i}]]<{iso1})||(Photon_isScEtaEE[raw_best_4g_m{{m}}[{i}]]==1 && Photon_corrIso_m{{m}}[raw_best_4g_m{{m}}[{i}]]<{iso2}))" for i in range(24,28))
-#ID3_ggH4g = " && ".join(f"(Photon_PassPhIso[raw_best_4g_m{{m}}[{i}]]==1)" for i in range(24,28))
-
-#only preselection and ID rules change for ggH4g_1bad. EE and EB logic identical
-#ID1_1bad = "(((Photon_preselection[raw_best_4g_m{m}[24]])+(Photon_preselection[raw_best_4g_m{m}[25]])+(Photon_preselection[raw_best_4g_m{m}[26]])+(Photon_preselection[raw_best_4g_m{m}[27]]))==3)"
-#ID2_1bad = "(((Photon_IdNoIso[raw_best_4g_m{m}[24]])+(Photon_IdNoIso[raw_best_4g_m{m}[25]])+(Photon_IdNoIso[raw_best_4g_m{m}[26]])+(Photon_IdNoIso[raw_best_4g_m{m}[27]]))==3)"
-
-#strings to pass into Define in phi mass loop
-#best_4g_ID_str_ggH4g_1bad = "{} && {} && {}".format(ID1_1bad, ID2_1bad, ID3_ggH4g)
-best_4g_ID_str_ggH4g="{} && {}".format(ID1_ggH4g, ID2_ggH4g)
     
 # Common Object ID:
 def muonAna(dataframe):
@@ -96,7 +83,9 @@ def photonAna(dataframe):
     photons = photons.Define("Photon_rho", "fixedGridRhoFastjetAll")
     photons=photons.Define("Photon_PassPhIso" , "passPhIso(Photon_vidNestedWPBitmap)")
 
-    #etxra information about isolation. EGM recommends to only use for quick studies/not part of the official ID. use bitmap instead for the ID (above).
+    # ANYTHING WITHIN THE EQUAL SIGNS NOT RECOMMENDED TO USE BY EGM - ONLY FOR QUICK STUDIES/TESTS.
+#==========================================================================================================================
+#==========================================================================================================================
     photons=photons.Define("Photon_passlooseEGMIso_neutral_plus_photon", "Photon_corrRelIso_EGM_loose_np(Photon_pt, Photon_isScEtaEE, Photon_isScEtaEB, Photon_pfRelIso03_all-Photon_pfRelIso03_chg)")  #bools for neutral+photon
     photons=photons.Define("Photon_passlooseEGMIso_charged", "Photon_corrRelIso_EGM_loose_chg(Photon_isScEtaEE, Photon_isScEtaEB, Photon_pfRelIso03_chg)") #bools for charged
     photons=photons.Define("Photon_looseEGMIso_neutral_plus_photon_cut", "Photon_corrRelIso_EGM_loose_cut_np(Photon_pt, Photon_isScEtaEE, Photon_isScEtaEB)")
@@ -106,10 +95,12 @@ def photonAna(dataframe):
     photons=photons.Define("Photon_passloosecustomIso_charged", "Photon_corrRelIso_custom_loose_chg(Photon_isScEtaEE, Photon_isScEtaEB, Photon_pfRelIso03_chg)") #bools for charged custom
     photons=photons.Define("Photon_loosecustomIso_neutral_plus_photon_cut", "Photon_corrRelIso_custom_loose_cut_np(Photon_pt, Photon_isScEtaEE, Photon_isScEtaEB)")
     photons=photons.Define("Photon_loosecustomIso_chg_cut", "Photon_corrRelIso_custom_loose_cut_chg(Photon_isScEtaEE, Photon_isScEtaEB, Photon_pfRelIso03_chg)")
+#==========================================================================================================================
+#==========================================================================================================================
 
-    # Common Photon ID definitions (No isolation)
-    sieie1, sieie2 = get_ID_val("sieie")
-    hoe1, hoe2 = get_ID_val("hoe")
+    #defining idnoiso cuts from custom loose ID H/E and sieie cuts.
+    sieie1, sieie2 = get_ID_val("sieie", "custom")
+    hoe1, hoe2 = get_ID_val("hoe", "custom")
     photons = photons.Define("Photon_IdNoIso",f"((Photon_isScEtaEB&&Photon_hoe<{hoe1}&&Photon_sieie<{sieie1})||(Photon_isScEtaEE&&Photon_hoe<{hoe2}&&Photon_sieie<{sieie2}))")
 
     return photons    
@@ -170,18 +161,22 @@ def ggH(data,phi_mass,sample):
         df=df.Define("Photon_passBitMap_tight_iso_gamma3_m{m}".format(m=mass), "Photon_PassPhIso[best_4g_idx3_m{m}]==3".format(m=mass))
         df=df.Define("Photon_passBitMap_tight_iso_gamma4_m{m}".format(m=mass), "Photon_PassPhIso[best_4g_idx4_m{m}]==3".format(m=mass))
  
+        #EVENT-LEVEL BOOLEAN IF BEST 4 PHOTONS PASS LOOSE EGM ISOLATION. THIS IS THE RECOMMENDED METHOD TO ISOLATION ID.
         df=df.Define("best_4g_passBitMap_loose_iso_m{m}".format(m=mass), "Photon_PassPhIso[best_4g_idx1_m{m}]==1 && Photon_PassPhIso[best_4g_idx2_m{m}]==1 && Photon_PassPhIso[best_4g_idx3_m{m}]==1 && Photon_PassPhIso[best_4g_idx4_m{m}]==1".format(m=mass))
         df=df.Define("best_4g_passBitMap_medium_iso_m{m}".format(m=mass), "Photon_PassPhIso[best_4g_idx2_m{m}]==2 && Photon_PassPhIso[best_4g_idx2_m{m}]==2 && Photon_PassPhIso[best_4g_idx3_m{m}]==2 && Photon_PassPhIso[best_4g_idx4_m{m}]==2".format(m=mass))
         df=df.Define("best_4g_passBitMap_tight_iso_m{m}".format(m=mass), "Photon_PassPhIso[best_4g_idx3_m{m}]==3 && Photon_PassPhIso[best_4g_idx2_m{m}]==3 && Photon_PassPhIso[best_4g_idx3_m{m}]==3 && Photon_PassPhIso[best_4g_idx4_m{m}]==3".format(m=mass))
 
-        #the relative isolation values for each of the 4 best photons. NOT RECOMMENDED TO USE BY EGM - ONLY FOR QUICK STUDIES/TESTS.
+        #the relative isolation values for each of the 4 best photons. i
+        # ANYTHING WITHIN THE EQUAL SIGNS NOT RECOMMENDED TO USE BY EGM - ONLY FOR QUICK STUDIES/TESTS.
+#==========================================================================================================================
+#==========================================================================================================================
         df=df.Define("Photon_RelIso_gamma1_m{m}".format(m=mass), "Photon_pfRelIso03_all[best_4g_idx1_m{m}]".format(m=mass))
         df=df.Define("Photon_RelIso_gamma2_m{m}".format(m=mass), "Photon_pfRelIso03_all[best_4g_idx2_m{m}]".format(m=mass))
         df=df.Define("Photon_RelIso_gamma3_m{m}".format(m=mass), "Photon_pfRelIso03_all[best_4g_idx3_m{m}]".format(m=mass))
         df=df.Define("Photon_RelIso_gamma4_m{m}".format(m=mass), "Photon_pfRelIso03_all[best_4g_idx4_m{m}]".format(m=mass))
 
         #sanity checks to be sure the boolean logic on the isolation with the photons is correct. checking the best 4 photons individually. 
-        #i check the n+p iso value, the n+p cut value, if it passes for all 4 then repeat for the charged. alot of work but crucial to make sure it works.
+        #i check the n+p iso value, the n+p cut value, if it passes for all 4 then repeat for the charged. crucial to make sure it works.
         df=df.Define("Photon_valIso_neutral_plus_photon_gamma1_m{m}".format(m=mass), "Photon_pfRelIso03_all[best_4g_idx1_m{m}]-Photon_pfRelIso03_chg[best_4g_idx1_m{m}]".format(m=mass))
         df=df.Define("Photon_cutEGMIso_neutral_plus_photon_gamma1_m{m}".format(m=mass), "Photon_looseEGMIso_neutral_plus_photon_cut[best_4g_idx1_m{m}]".format(m=mass))
         df=df.Define("Photon_passEGMIso_neutral_plus_photon_gamma1_m{m}".format(m=mass), "Photon_passlooseEGMIso_neutral_plus_photon[best_4g_idx1_m{m}]".format(m=mass))
@@ -234,6 +229,8 @@ def ggH(data,phi_mass,sample):
         df=df.Define("best_4g_passcustomIso_neutral_plus_photon_m{m}".format(m=mass), "(Photon_passloosecustomIso_neutral_plus_photon[best_4g_idx1_m{m}]==1)&&(Photon_passloosecustomIso_neutral_plus_photon[best_4g_idx2_m{m}]==1)&&(Photon_passloosecustomIso_neutral_plus_photon[best_4g_idx3_m{m}]==1)&&(Photon_passloosecustomIso_neutral_plus_photon[best_4g_idx4_m{m}]==1)".format(m=mass))
         df=df.Define("best_4g_passcustomIso_charged_m{m}".format(m=mass), "(Photon_passloosecustomIso_charged[best_4g_idx1_m{m}]==1)&&(Photon_passloosecustomIso_charged[best_4g_idx2_m{m}]==1)&&(Photon_passloosecustomIso_charged[best_4g_idx3_m{m}]==1)&&(Photon_passloosecustomIso_charged[best_4g_idx4_m{m}]==1)".format(m=mass))
         df=df.Define("best_4g_passLoosecustomIso_m{m}".format(m=mass), "best_4g_passcustomIso_neutral_plus_photon_m{m} && best_4g_passcustomIso_charged_m{m}".format(m=mass))
+#==========================================================================================================================
+#==========================================================================================================================
         return df
 
     def corrected_kinematic_vars(df, mass):
@@ -325,17 +322,10 @@ def ggH(data,phi_mass,sample):
         ggH4g=ggH4g.Define('best_4g_phi2_valid_m{}'.format(mass),'raw_best_4g_m{}[15]'.format(mass))
 
 
-        
     ggH4g=ggH4g.Filter('sample_isMC==1 | non_MC_cut_m30==1','blinding_data_samples')
 
-
-    # Create snapshots for ggH3g and ggH4g
     actions.append(ggH4g.Snapshot('ggH4g', f"{sample}_ggH4g.root", cols, opts))
-
-    # Generate and save reports for ggH3g and ggH4g
     save_report(ggH4g, "Report_ggH4g", f"{sample}_ggH4g", opts, actions)
-
-    # Create snapshots for the 'Runs' tree in both files
     for tree in ['Runs']:
         actions.append(dataframe[tree].Snapshot(tree, f"{sample}_ggH4g.root", "", opts))
 

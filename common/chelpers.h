@@ -905,6 +905,10 @@ float genLxy(RVecF vx, RVecF vy){
 }
 
 
+//THIS IS ONLY FOR THE PURPOSES OF STUDYING THE LOOSE PHOTON ID. EGM RECOMMENDS BITMAP METHOD.
+//returns vector of booleans if photons pass loose EGM recommendation of the neutral+photon threshold
+//take the minimum value of the two thresholds to be conservartive between: neutral and photon
+//this is needed because nanoAODv9 does not provide individual values of the neutral and photon iso.
 RVecF Photon_corrRelIso_EGM_loose_np(const RVecF& gpt, const RVecB& isEE, const RVecB& isEB, const RVecF& giso){
   RVecB result;
   result.reserve(gpt.size());
@@ -938,6 +942,9 @@ RVecF Photon_corrRelIso_EGM_loose_np(const RVecF& gpt, const RVecB& isEE, const 
 }
 
 
+//THIS IS ONLY FOR THE PURPOSES OF STUDYING THE LOOSE PHOTON ID. EGM RECOMMENDS BITMAP METHOD.
+//returns vector of booleans if photons pass loose EGM recommendation of the charhed photon threshold. 
+//no minimum is needed because we are provided the value of the charged component in nanoAODv9.
 RVecF Photon_corrRelIso_EGM_loose_chg(const RVecB& isEE, const RVecB& isEB, const RVecF& giso){
   RVecB result;
   result.reserve(giso.size());
@@ -966,7 +973,10 @@ RVecF Photon_corrRelIso_EGM_loose_chg(const RVecB& isEE, const RVecB& isEB, cons
   return result;
 }
 
-
+//THIS IS ONLY FOR THE PURPOSES OF STUDYING THE LOOSE PHOTON ID. EGM RECOMMENDS BITMAP METHOD.
+//returns vector of booleans if photons pass out custom loose neutral and photon isolation
+//scaled the EGM recommendation threshold by 1.5 to loosen the standard EGM recommendation
+//takes minimum to be conservative as we are not provided independent neutral and photon iso values
 RVecF Photon_corrRelIso_custom_loose_np(const RVecF& gpt, const RVecB& isEE, const RVecB& isEB, const RVecF& giso){
   RVecB result;
   result.reserve(gpt.size());
@@ -1000,6 +1010,8 @@ RVecF Photon_corrRelIso_custom_loose_np(const RVecF& gpt, const RVecB& isEE, con
 }
 
 
+//THIS IS ONLY FOR THE PURPOSES OF STUDYING THE LOOSE PHOTON ID. EGM RECOMMENDS BITMAP METHOD.
+//same as above but now for charged. 1.5 times the EGM recommendation to make it looser. 
 RVecF Photon_corrRelIso_custom_loose_chg(const RVecB& isEE, const RVecB& isEB, const RVecF& giso){
   RVecB result;
   result.reserve(giso.size());
@@ -1029,6 +1041,8 @@ RVecF Photon_corrRelIso_custom_loose_chg(const RVecB& isEE, const RVecB& isEB, c
 }
 
 
+//THIS IS ONLY FOR THE PURPOSES OF STUDYING THE LOOSE PHOTON ID. EGM RECOMMENDS BITMAP METHOD.
+//returns vector of cut values for EGM loose recommendation after minimum is taken.
 RVecF Photon_corrRelIso_EGM_loose_cut_np(const RVecF& gpt, const RVecB& isEE, const RVecB& isEB){
   RVecF result;
   result.reserve(gpt.size());
@@ -1057,6 +1071,8 @@ RVecF Photon_corrRelIso_EGM_loose_cut_np(const RVecF& gpt, const RVecB& isEE, co
 }
 
 
+//THIS IS ONLY FOR THE PURPOSES OF STUDYING THE LOOSE PHOTON ID. EGM RECOMMENDS BITMAP METHOD.
+//returns vector of charged EGM cut values (constant)
 RVecF Photon_corrRelIso_EGM_loose_cut_chg(const RVecB& isEE, const RVecB& isEB, const RVecF& giso){
   RVecF result;
   result.reserve(giso.size());
@@ -1080,6 +1096,8 @@ RVecF Photon_corrRelIso_EGM_loose_cut_chg(const RVecB& isEE, const RVecB& isEB, 
   return result;
 }
 
+//THIS IS ONLY FOR THE PURPOSES OF STUDYING THE LOOSE PHOTON ID. EGM RECOMMENDS BITMAP METHOD.
+//returns vector of charged cut values for photon adn neutral for custom loose ID. 
 RVecF Photon_corrRelIso_custom_loose_cut_np(const RVecF& gpt, const RVecB& isEE, const RVecB& isEB){
   RVecF result;
   result.reserve(gpt.size());
@@ -1108,6 +1126,8 @@ RVecF Photon_corrRelIso_custom_loose_cut_np(const RVecF& gpt, const RVecB& isEE,
 }
 
 
+//THIS IS ONLY FOR THE PURPOSES OF STUDYING THE LOOSE PHOTON ID. EGM RECOMMENDS BITMAP METHOD.
+//returns vector of actual charge cut values (constant)
 RVecF Photon_corrRelIso_custom_loose_cut_chg(const RVecB& isEE, const RVecB& isEB, const RVecF& giso){
   RVecF result;
   result.reserve(giso.size());

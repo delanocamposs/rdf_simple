@@ -1,0 +1,71 @@
+samples_data_2016 = {
+#samples_data_2016['test']={'dataset':"local:/uscms/home/dacampos/nobackup/rdf_simple/04907C5D-C034-F24F-9D9C-EF91B8BDDB0E.root",
+#                    'triggers':['HLT_DoublePhoton60'],
+#                    'isMC':0,
+#                    'veto_triggers':[],
+#                    'era': '2016',
+#                    'jobs':8}
+
+'DoubleEG_2016B_ver1':{'dataset':'/DoubleEG/Run2016B-ver1_HIPM_UL2016_MiniAODv2_NanoAODv9-v2/NANOAOD',
+                    'triggers':['HLT_DoublePhoton60'],
+                    'veto_triggers':[],
+                    'isMC':0,
+                    'era': '2016',
+                    'jobs':5},
+
+'DoubleEG_2016B_ver2':{'dataset':'/DoubleEG/Run2016B-ver2_HIPM_UL2016_MiniAODv2_NanoAODv9-v3/NANOAOD',
+                    'triggers':['HLT_DoublePhoton60'],
+                    'veto_triggers':[],
+                    'isMC':0,
+                    'era': '2016',
+                    'jobs':8},
+
+'DoubleEG_2016C_HIPM':{'dataset':'/DoubleEG/Run2016C-HIPM_UL2016_MiniAODv2_NanoAODv9-v2/NANOAOD',
+                    'triggers':['HLT_DoublePhoton60'],
+                    'veto_triggers':[],
+                    'isMC':0,
+                    'era': '2016',
+                    'jobs':8},
+
+'DoubleEG_2016D_HIPM':{'dataset':'/DoubleEG/Run2016D-HIPM_UL2016_MiniAODv2_NanoAODv9-v2/NANOAOD',
+                    'triggers':['HLT_DoublePhoton60'],
+                    'veto_triggers':[],
+                    'isMC':0,
+                    'era': '2016',
+                    'jobs':8},
+
+'DoubleEG_2016E_HIPM':{'dataset':'/DoubleEG/Run2016E-HIPM_UL2016_MiniAODv2_NanoAODv9-v2/NANOAOD',
+                    'triggers':['HLT_DoublePhoton60'],
+                    'veto_triggers':[],
+                    'isMC':0,
+                    'era': '2016',
+                    'jobs':8},
+
+'DoubleEG_2016F_HIPM':{'dataset':'/DoubleEG/Run2016F-HIPM_UL2016_MiniAODv2_NanoAODv9-v2/NANOAOD',
+                    'triggers':['HLT_DoublePhoton60'],
+                    'veto_triggers':[],
+                    'isMC':0,
+                    'era': '2016',
+                    'jobs':8},
+
+'DoubleEG_2016F_NO-HIPM':{'dataset':'/DoubleEG/Run2016F-UL2016_MiniAODv2_NanoAODv9-v1/NANOAOD',
+                    'triggers':['HLT_DoublePhoton60'],
+                    'veto_triggers':[],
+                    'isMC':0,
+                    'era': '2016',
+                    'jobs':5},
+
+'DoubleEG_2016G_NO-HIPM':{'dataset':'/DoubleEG/Run2016G-UL2016_MiniAODv2_NanoAODv9-v1/NANOAOD',
+                    'triggers':['HLT_DoublePhoton60'],
+                    'veto_triggers':[],
+                    'isMC':0,
+                    'era': '2016',
+                    'jobs':8},
+
+'DoubleEG_2016H_NO-HIPM':{'dataset':'/DoubleEG/Run2016H-UL2016_MiniAODv2_NanoAODv9-v1/NANOAOD',
+                    'triggers':['HLT_DoublePhoton60'],
+                    'veto_triggers':[],
+                    'isMC':0,
+                    'era': '2016',
+                    'jobs':8}
+}

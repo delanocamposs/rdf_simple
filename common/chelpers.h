@@ -905,4 +905,242 @@ float genLxy(RVecF vx, RVecF vy){
 }
 
 
+RVecF Photon_corrRelIso_EGM_loose_np(const RVecF& gpt, const RVecB& isEE, const RVecB& isEB, const RVecF& giso){
+  RVecB result;
+  result.reserve(gpt.size());
+
+  for (size_t i = 0; i < gpt.size(); ++i) {
+    const float p = gpt[i];
+	const float iso = giso[i];
+
+	float neutral;
+	float photon;
+
+    if (isEE[i]) {
+      neutral = 19.722 + 0.0117*p + 2.3e-5*p*p;
+      photon  = 4.162 + 0.0037*p;
+    }
+    else if (isEB[i]) {
+      neutral = 24.032 + 0.01512*p + 2.259e-5*p*p;
+      photon  = 2.876 + 0.004017*p;
+    } 
+
+	float iso_cut = min(photon/p, neutral/p);
+	
+	if (iso<iso_cut){
+		result.emplace_back(true);
+	} else{
+		result.emplace_back(false);
+	}
+  }
+
+  return result;
+}
+
+
+RVecF Photon_corrRelIso_EGM_loose_chg(const RVecB& isEE, const RVecB& isEB, const RVecF& giso){
+  RVecB result;
+  result.reserve(giso.size());
+
+  for (size_t i = 0; i < giso.size(); ++i) {
+	const float iso = giso[i];
+
+	float charged;
+
+    if (isEE[i]) {
+		charged=2.089;
+    }
+    else if (isEB[i]) {
+		charged=1.694;
+    } 
+
+	float iso_cut = charged;
+	
+	if (iso<iso_cut){
+		result.emplace_back(true);
+	} else{
+		result.emplace_back(false);
+	}
+  }
+
+  return result;
+}
+
+
+RVecF Photon_corrRelIso_custom_loose_np(const RVecF& gpt, const RVecB& isEE, const RVecB& isEB, const RVecF& giso){
+  RVecB result;
+  result.reserve(gpt.size());
+
+  for (size_t i = 0; i < gpt.size(); ++i) {
+    const float p = gpt[i];
+	const float iso = giso[i];
+
+	float neutral;
+	float photon;
+
+    if (isEE[i]) {
+      neutral = 19.722 + 0.0117*p + 2.3e-5*p*p;
+      photon  = 4.162 + 0.0037*p;
+    }
+    else if (isEB[i]) {
+      neutral = 24.032 + 0.01512*p + 2.259e-5*p*p;
+      photon  = 2.876 + 0.004017*p;
+    } 
+
+	float iso_cut = min(1.5*(photon/p), 1.5*(neutral/p));
+	
+	if (iso<(iso_cut)){
+		result.emplace_back(true);
+	} else{
+		result.emplace_back(false);
+	}
+  }
+
+  return result;
+}
+
+
+RVecF Photon_corrRelIso_custom_loose_chg(const RVecB& isEE, const RVecB& isEB, const RVecF& giso){
+  RVecB result;
+  result.reserve(giso.size());
+
+  for (size_t i = 0; i < giso.size(); ++i) {
+	const float iso = giso[i];
+
+	float charged;
+
+    if (isEE[i]) {
+		charged=2.089;
+    }
+    else if (isEB[i]) {
+		charged=1.694;
+    } 
+
+	float iso_cut = 1.5*charged;
+	
+	if (iso<iso_cut){
+		result.emplace_back(true);
+	} else{
+		result.emplace_back(false);
+	}
+  }
+
+  return result;
+}
+
+
+RVecF Photon_corrRelIso_EGM_loose_cut_np(const RVecF& gpt, const RVecB& isEE, const RVecB& isEB){
+  RVecF result;
+  result.reserve(gpt.size());
+
+  for (size_t i = 0; i < gpt.size(); ++i) {
+    const float p = gpt[i];
+
+	float neutral;
+	float photon;
+
+    if (isEE[i]) {
+      neutral = 19.722 + 0.0117*p + 2.3e-5*p*p;
+      photon  = 4.162 + 0.0037*p;
+    }
+    else if (isEB[i]) {
+      neutral = 24.032 + 0.01512*p + 2.259e-5*p*p;
+      photon  = 2.876 + 0.004017*p;
+    } 
+
+	float iso_cut = min(photon/p, neutral/p);
+	result.emplace_back(iso_cut);
+	
+  }
+
+  return result;
+}
+
+
+RVecF Photon_corrRelIso_EGM_loose_cut_chg(const RVecB& isEE, const RVecB& isEB, const RVecF& giso){
+  RVecF result;
+  result.reserve(giso.size());
+
+  for (size_t i = 0; i < giso.size(); ++i) {
+	const float iso = giso[i];
+
+	float charged;
+
+    if (isEE[i]) {
+		charged=2.089;
+    }
+    else if (isEB[i]) {
+		charged=1.694;
+    } 
+
+	float iso_cut = charged;
+	result.emplace_back(iso_cut);
+  }
+
+  return result;
+}
+
+RVecF Photon_corrRelIso_custom_loose_cut_np(const RVecF& gpt, const RVecB& isEE, const RVecB& isEB){
+  RVecF result;
+  result.reserve(gpt.size());
+
+  for (size_t i = 0; i < gpt.size(); ++i) {
+    const float p = gpt[i];
+
+    float neutral;
+    float photon;
+
+    if (isEE[i]) {
+      neutral = 19.722 + 0.0117*p + 2.3e-5*p*p;
+      photon  = 4.162 + 0.0037*p;
+    }
+    else if (isEB[i]) {
+      neutral = 24.032 + 0.01512*p + 2.259e-5*p*p;
+      photon  = 2.876 + 0.004017*p;
+    }
+
+    float iso_cut = min(1.5*(photon/p), 1.5*(neutral/p));
+    result.emplace_back(iso_cut);
+
+  }
+
+  return result;
+}
+
+
+RVecF Photon_corrRelIso_custom_loose_cut_chg(const RVecB& isEE, const RVecB& isEB, const RVecF& giso){
+  RVecF result;
+  result.reserve(giso.size());
+
+  for (size_t i = 0; i < giso.size(); ++i) {
+	const float iso = giso[i];
+
+	float charged;
+
+    if (isEE[i]) {
+		charged=2.089;
+    }
+    else if (isEB[i]) {
+		charged=1.694;
+    } 
+
+	float iso_cut = 1.5*charged;
+	result.emplace_back(iso_cut);
+  }
+
+  return result;
+}
+
+
+RVecI passPhIso(RVecI bitmaps){
+  RVecI out;
+  out.reserve(bitmaps.size());
+  for (size_t i = 0; i < bitmaps.size(); i++){
+    int bitmap = bitmaps[i];
+    bool pass = (bitmap>>12&3) >= 1;
+    out.emplace_back(pass);
+  }
+  return out;
+}
+
 #endif

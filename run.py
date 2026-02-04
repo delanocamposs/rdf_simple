@@ -13,7 +13,7 @@ from optparse import OptionParser
 
 parser = OptionParser()
 parser.add_option("-a", "--analysis", dest="analysis",
-                  help="Split the sample in N sub samples",type='str',default='VH')
+                  help="Split the sample in N sub samples",type='str',default='ggH')
 parser.add_option("-s", "--splitFactor", dest="splitFactor",
                   help="Split the sample in N sub samples",type='int',default=0)
 parser.add_option("-p", "--processPart", dest="processPart",

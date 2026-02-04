@@ -48,6 +48,7 @@ def load_meta_data(data):
     dataframe['Runs'] = ROOT.RDataFrame("Runs", data['files'])
     dataframe['isMC'] = data['isMC']
     dataframe['customNanoAOD'] = data['customNanoAOD']
+    dataframe['isScouting']=data['isScouting']
     return dataframe
 
 
@@ -88,6 +89,12 @@ def loadSample(info,locator='root://cms-xrd-global.cern.ch//'):
         meta['customNanoAOD'] = info['customNanoAOD']
     else:
         meta['customNanoAOD'] = False
+    if 'isScouting' in info.keys():
+        meta['isScouting']=info['isScouting']
+    else:
+        meta['isScouting']=0
+    print(meta['isScouting'])
+    print(type(meta['isScouting']))
     return meta
 
 

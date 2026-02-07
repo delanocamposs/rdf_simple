@@ -416,7 +416,7 @@ def wmugamma(data,sample):
     return actions
 
 
-def wegamma(data,phi_mass,sample):
+def wegamma(data,sample):
     actions=[]
 
     #Declare dataframe and load all meta data 

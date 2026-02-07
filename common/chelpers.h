@@ -897,5 +897,12 @@ RVecF photonEnergyScale(RVecF eta, RVecU seedgain, std::vector<std::pair<unsigne
   return out;
 }
 
+float genLxy(RVecF vx, RVecF vy){
+  float out = 0;
+  if (vx.size() > 0)
+    out = std::sqrt(vx[0]*vx[0]+vy[0]*vy[0]);
+  return out;
+}
+
 
 #endif

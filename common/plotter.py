@@ -1268,7 +1268,7 @@ class mplhep_plotter(object):
                                 ax=ax[i],
                                 density=(True if self.stack==False else False)                        
                                 )
-            ax[i].text(textx, texty, f'{xedges[0]}'+r"$\leq$"+f"{ylabel}<{xedges[1]} "+yunits , transform=ax[i].transAxes,
+            ax[i].text(textx, texty, f'{xedges[0]}'+r"$\leq$"+f"{ylabel} <{xedges[1]} {yunits}" , transform=ax[i].transAxes,
                        fontsize=20, ha='center', va='center', 
                        bbox=dict(facecolor='white',edgecolor='none', alpha=0.5))
             #then stack backgrounds and then draw band
@@ -1318,7 +1318,7 @@ class limit_plotter(object):
         expected975=self.rdf.Filter('TMath::Abs(quantileExpected-0.975)<0.001').AsNumpy(['mh','limit'])
         observed=self.rdf.Filter('quantileExpected==-1').AsNumpy(['mh','limit'])
 #        import pdb;pdb.set_trace()
-        if ax==None:
+        if ax is None:
             fig,ax = plt.subplots()
         
             
@@ -1346,9 +1346,32 @@ class limit_plotter(object):
             else:
                 mh.cms.label(self.label, data=self.data, lumi=None, com=None,rlabel=f'{self.com} TeV',ax=ax, loc=0)
         if show:
-            plt.tight_layout()                            
             plt.show()
         
+    def expected_vs_observed(self,col='lime',ax=None,show=False,quiet=False,legend_loc='upper right',xlabel='',xunits='',ylabel='95% CL Upper Limits'):
+        expected=self.rdf.Filter('TMath::Abs(quantileExpected-0.5)<0.001').AsNumpy(['mh','limit'])
+        observed=self.rdf.Filter('quantileExpected==-1').AsNumpy(['mh','limit'])
+
+        if ax is None:
+            fig,ax = plt.subplots()
+        
+            
+        ax.plot(expected['mh'],expected['limit'],linestyle='--',color=col,label=r'Asymptotic $CL_s$ expected')
+        ax.plot(observed['mh'],observed['limit'],color=col,label='Observed')
+        ax.margins(x=0)
+                     
+        if quiet==False:
+            ax.legend(loc=legend_loc)
+            if xlabel!="":
+                ax.set_xlabel(f"{xlabel} ({xunits})")
+            if ylabel!="":
+                ax.set_ylabel(ylabel)
+            if self.data==True:
+                mh.cms.label(self.label, data=self.data, lumi=self.lumi, com=self.com,ax=ax, loc=0)
+            else:
+                mh.cms.label(self.label, data=self.data, lumi=None, com=None,rlabel=f'{self.com} TeV',ax=ax, loc=0)
+        if show:
+            plt.show()
 
 
 class multilimit_plotter(object):
@@ -1361,14 +1384,17 @@ class multilimit_plotter(object):
 
         self.plotters=plotters
 
-    def brazilian_flag(self,band2sigma_color='lime',band1sigma_color='yellow',show=False,legend_loc='upper right',xlabel='',xunits='',ylabel='95% CL Upper Limits'):
+    def brazilian_flag(self,band2sigma_color='lime',band1sigma_color='yellow',show=False,legend_loc='upper right',xlabel='',xunits='',ylabel='95% CL Upper Limits',log=True):
         
-        fig,ax = plt.subplots(1,len(self.plotters),sharey=True,figsize=(50,10))
+        fig,ax = plt.subplots(1,len(self.plotters),sharey=True,figsize=(7.5*len(self.plotters),20))
         plt.subplots_adjust(wspace=0)
         for i , plotter in enumerate(self.plotters):
+            xdim = int(i%3)
+            ydim = int(i/3)
+
             plotter['plotter'].brazilian_flag(band2sigma_color=band2sigma_color,band1sigma_color=band1sigma_color,ax=ax[i],show=False,quiet=True)
             
-
+            
         ax[-1].legend(loc=legend_loc)
         if xlabel!="":
             ax[-1].set_xlabel(f"{xlabel} ({xunits})")
@@ -1379,13 +1405,36 @@ class multilimit_plotter(object):
             mh.cms.label(None,exp='',data=self.data,llabel="", ax=ax[-1], loc=0,lumi=None,com=None,rlabel=f'{self.com} TeV')
         else:
             mh.cms.label(None,exp='',data=self.data,llabel="", ax=ax[-1], loc=0,lumi=self.lumi,com=self.com)
-        ax[0].set_yscale('log')
-        plt.tight_layout()
-        
+        if log:
+            ax[0].set_yscale('log')
         if show:
-            
             plt.show()
         
+    def expected_vs_observed(self,show=False,legend_loc='upper right',xlabel='',xunits='',ylabel='95% CL Upper Limits',log=True):
+        
+        fig,ax = plt.subplots(1,len(self.plotters),sharey=True,figsize=(7.5*len(self.plotters),20))
+        plt.subplots_adjust(wspace=0)
+        for i , plotter in enumerate(self.plotters):
+            xdim = int(i%3)
+            ydim = int(i/3)
+
+            plotter['plotter'].expected_vs_observed(col=plotter['color'],ax=ax[i],show=False,quiet=True)
+            
+            
+        ax[-1].legend(loc=legend_loc)
+        if xlabel!="":
+            ax[-1].set_xlabel(f"{xlabel} ({xunits})")
+        if ylabel!="":
+            ax[0].set_ylabel(ylabel)
+        mh.cms.label(self.label,data=self.data,rlabel="", ax=ax[0], loc=0)
+        if self.data==False:
+            mh.cms.label(None,exp='',data=self.data,llabel="", ax=ax[-1], loc=0,lumi=None,com=None,rlabel=f'{self.com} TeV')
+        else:
+            mh.cms.label(None,exp='',data=self.data,llabel="", ax=ax[-1], loc=0,lumi=self.lumi,com=self.com)
+        if log:
+            ax[0].set_yscale('log')
+        if show:
+            plt.show()
         
         
 

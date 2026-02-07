@@ -12,7 +12,7 @@ if __name__ == '__main__':
     parser.add_option("-e", "--era", dest = "era", default = "Run2", help = "2016, 2017, 2018, Run2")
     parser.add_option("-m", "--masses", dest = "masses",default = '15,20,30,40,50,55' ,help = "15,20,30,40,50,55")
     parser.add_option("-l", "--lifetimes", dest = "lifetimes",default = '0,10,20,50,100,1000',help = "0,10,20,50,100,1000")
-    parser.add_option("-p", "--prod", dest = "prod", default = "2026_01_03", help = "sample production date")
+    parser.add_option("-p", "--prod", dest = "prod", default = "2026_02_02", help = "sample production date")
     parser.add_option("-b", "--blind", dest = "blind", action="store_true", default = False, help = "Blinded")
     (options,args) = parser.parse_args()
 

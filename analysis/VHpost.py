@@ -490,10 +490,13 @@ def getAnalysis(sampleDir,prod,ana,era='Run2',masses=masses,lifetimes=lifetimes,
     
     analysis['zjets']=getPlotter('DYJetsToLL_M50_LO',sampleDir,'MC',eras,prod,ana)
     analysis['zjets'].addCorrectionFactor(leptonSF[ana],'flat')
-
-    analysis['tt']=getPlotter('TTJets',sampleDir,'MC',eras,prod,ana)
-    analysis['tt'].addCorrectionFactor(leptonSF[ana],'flat')
-    
+    if ana in ['wmn2g','wenu2g']:
+        analysis['tt']=getPlotter('TTJets',sampleDir,'MC',eras,prod,ana)
+        analysis['tt'].addCorrectionFactor(leptonSF[ana],'flat')
+    else:
+        analysis['tt']=getPlotter('TTJets_DiLept',sampleDir,'MC',eras,prod,ana)
+        analysis['tt'].addCorrectionFactor(leptonSF[ana],'flat')
+        
     analysis['tt'].setFillProperties(1001, ROOT.kAzure-2)
     analysis['tt'].setLineProperties(1, ROOT.kAzure-2, 3)
 
@@ -546,14 +549,72 @@ def runAction(sampleDir,prod,action='fakerate_closure',masses=masses,outputDir='
             analysis=getAnalysis(sampleDir,prod,ana,background_method='fakerate',era=era,signals=signals,lifetimes=lifetimes)
             stack=mplhep_plotter(com=center_of_mass[era],data=False,lumi=None)
             stack.stack=False
+            
             for ctau in lifetimes:
-                stack.add_plotter(analysis['signal'][m][ctau]['sum'],label=r'$c\tau=$'+f"{ctau} mm",typeP='signal',error_mode='w2',color=signal_colors[ctau])
+                analysis['signal'][m][ctau]['sum'].define("deltaLXY",f"best_2g_dxy_m{m}-genLxy(GenPart_vx[GenPart_isSignal], GenPart_vy[GenPart_isSignal])")
+                stack.add_plotter(analysis['signal'][m][ctau]['sum'],label=r'$c\tau=$'+f"{ctau} mm",typeP='signal',error_mode='w2',color=signal_colors[ctau])                
+
+            stack.hist1d("deltaLXY",cuts[ana][m]['sr'],model=('a','a',60,-15,15),alpha=1,xlabel=r"$\Delta L_{xy}$ ",xunits="",show=False,legend_loc='upper left')
+            plt.savefig(f'{outputDir}/kinfit_deltaLXY_m{m}.{file_extension}', dpi=400, bbox_inches='tight')               
             stack.hist1d(f"best_2g_raw_mass_m{m}",cuts[ana][m]['sr'],model=('a','a',100,8,m+2),alpha=1,xlabel=r"$m_{\gamma\gamma}$",xunits="GeV",show=False,legend_loc='upper left')
             plt.savefig(f'{outputDir}/kinfit_mass_m{m}.{file_extension}', dpi=400, bbox_inches='tight')
             stack.hist1d(f"best_2g_dxy_m{m}",cuts[ana][m]['sr'],model=('a','a',90,-10,80),alpha=1,xlabel=r"$d_{xy}$",xunits="cm",show=False,logscale=False)
+            
             plt.savefig(f'{outputDir}/kinfit_dxy{m}.{file_extension}', dpi=400, bbox_inches='tight')
             
+    #ACTION: Electron mis-id  plots
+    if action=="electron_misID_plots":
+        for m in masses:
+            ana='wen2g'
+            analysis=getAnalysis(sampleDir,prod,ana,background_method='fakerate',era=era,signals=signals,lifetimes=lifetimes)
+            stack=mplhep_plotter(com=center_of_mass[era],data=False,lumi=None)
+            stack.stack=False
+
+            for ctau in lifetimes:
+                stack.add_plotter(analysis['signal'][m][ctau]['sum'],label=r'$c\tau=$'+f"{ctau} mm",typeP='signal',error_mode='w2',color=signal_colors[ctau])                
+            stack.add_plotter(analysis['wjets'],label='W+jets',typeP='background',error_mode='w2')
+            stack.add_plotter(analysis['zjets'],label='Z+jets',typeP='background',error_mode='w2')
+            stack.add_plotter(analysis['tt'],label=r'$t\bar{t}$+jets',typeP='background',error_mode='w2')
+            cutsSpecial='&&'.join([cuts['W']['ELE'],
+                            cuts['pt'][m],
+                            cuts['photons'][m],
+#                            cuts['misID']['W']['ELE'][m],
+                            f"((Photon_passCutBasedID[best_2g_idx1_m{m}]+Photon_passCutBasedID[best_2g_idx2_m{m}])==2)"])
+            
+            stack.hist1d(f"best_2g_misID1_m{m}",cutsSpecial,model=('a','a',50,0,200),alpha=0.25,xlabel=r"$m_{\text{tag1}}$ ",xunits="GeV",show=False,legend_loc='upper left')
+            plt.savefig(f'{outputDir}/electron_misID_tag1_m{m}.{file_extension}', dpi=400, bbox_inches='tight')
+            stack.hist1d(f"best_2g_misID2_m{m}",cutsSpecial,model=('a','a',50,0,200),alpha=0.25,xlabel=r"$m_{\text{tag2}}$ ",xunits="GeV",show=False,legend_loc='upper left')
+            plt.savefig(f'{outputDir}/electron_misID_tag2_m{m}.{file_extension}', dpi=400, bbox_inches='tight')
+            stack.hist1d(f"best_2g_misID3_m{m}",cutsSpecial,model=('a','a',50,0,200),alpha=0.25,xlabel=r"$m_{\text{tag3}}$ ",xunits="GeV",show=False,legend_loc='upper left')
+            plt.savefig(f'{outputDir}/electron_misID_tag3_m{m}.{file_extension}', dpi=400, bbox_inches='tight')               
+
         
+    #ACTION: Low pt Photon Background
+    if action=="lowpt_photon_background":
+        for m in masses:
+            ana='wmn2g'
+            analysis=getAnalysis(sampleDir,prod,ana,background_method='fakerate',era=era,signals=signals,lifetimes=lifetimes)
+            stack=mplhep_plotter(com=center_of_mass[era],data=False,lumi=None)
+            stack.stack=False
+
+            for ctau in lifetimes:
+                stack.add_plotter(analysis['signal'][m][ctau]['sum'],label=r'$c\tau=$'+f"{ctau} mm",typeP='signal',error_mode='w2',color=signal_colors[ctau])                
+            stack.add_plotter(analysis['wjets'],label='W+jets',typeP='background',error_mode='w2')
+            stack.add_plotter(analysis['zjets'],label='Z+jets',typeP='background',error_mode='w2')
+            stack.add_plotter(analysis['tt'],label=r'$t\bar{t}$+jets',typeP='background',error_mode='w2')
+            cutsSpecial='&&'.join([cuts['W']['MU'],
+#                            cuts['pt'][m],
+                            cuts['photons'][m],
+                            cuts['misID']['W']['MU'][m],
+                            f"((Photon_passCutBasedID[best_2g_idx1_m{m}]+Photon_passCutBasedID[best_2g_idx2_m{m}])==2)"])
+            stack.define("pt1",f"Photon_pt[best_2g_idx1_m{m}]")
+            stack.define("pt2",f"Photon_pt[best_2g_idx2_m{m}]")
+            
+            stack.hist1d("pt1",cutsSpecial,model=('a','a',20,20,100),alpha=0.25,xlabel=r"$pt_{\gamma_1}$ ",xunits="GeV",show=False,legend_loc='upper left')
+            plt.savefig(f'{outputDir}/lowpt_photon_background1_m{m}.{file_extension}', dpi=400, bbox_inches='tight')
+            stack.hist1d("pt2",cutsSpecial,model=('a','a',20,20,100),alpha=0.25,xlabel=r"$pt_{\gamma_2}$ ",xunits="GeV",show=False,legend_loc='upper left')
+            plt.savefig(f'{outputDir}/lowpt_photon_background2_m{m}.{file_extension}', dpi=400, bbox_inches='tight')
+
         
 
         
@@ -598,7 +659,7 @@ def runAction(sampleDir,prod,action='fakerate_closure',masses=masses,outputDir='
                 stack.add_plotter(analysis['zjets'],label='DY+jets',typeP='background',error_mode='w2')
                 stack.add_plotter(analysis['tt'],label=r'$t\bar{t}$+jets',typeP='background',error_mode='w2')
                 #draw a plot
-                stack.unrolledCustom(f"best_2g_raw_mass_m{m}",f"best_2g_dxy_m{m}",cuts[ana][m]['sr'],binning[ana][m],alpha=1.0,xlabel=r"$d_{xy}$",xunits="cm",show=False)
+                stack.unrolledCustom(f"best_2g_raw_mass_m{m}",f"best_2g_dxy_m{m}",cuts[ana][m]['sr'],binning[ana][m],alpha=1.0,xlabel=r"$d_{xy}$",xunits="cm",show=False,ylabel=r'$m_{\gamma\gamma}$',yunits='GeV',textx=0.7)
                 plt.savefig(f'{outputDir}/fakerate_closure_{ana}_{m}.{file_extension}', dpi=400, bbox_inches='tight')
                 stack=None
                 fr_plotter=None
@@ -657,6 +718,105 @@ def runAction(sampleDir,prod,action='fakerate_closure',masses=masses,outputDir='
             
         
     
+    #ACTION: step by step              
+    elif action=="step_by_step":
+        mySignals={
+            'wmn2g':['WH','ttH'],
+            'wen2g':['WH','ttH'],
+            'zmm2g':['ZH','ggZH'],
+            'zee2g':['ZH','ggZH']}
+        
+        for ana in analyses:
+            if ana=='wmn2g':
+                v='W'
+                l='MU'
+            elif ana=='wen2g':
+                v='W'
+                l='ELE'
+            elif ana=='zmm2g':
+                v='Z'
+                l='MU'
+            elif ana=='zee2g':
+                v='Z'
+                l='ELE'
+            cutDescriptors=['Preselection & HLT','W/Z reco',r'$\gamma \ p_{T}$ cuts',r'$p_{T}>20$ GeV, m>4 GeV',r'$e\gamma$ mis-ID','final photon ID',r'$L_{xy}>-10$ cm',]
+            colors=['dimgrey','lightcoral','chocolate','yellowgreen','turquoise','deepskyblue','darkviolet','magenta']
+            analysis=getAnalysis(sampleDir,prod,ana,background_method='fakerate',era=era,br=signal_br,signals=mySignals[ana],lifetimes=lifetimes)
+            mh.style.use('CMS')            
+            fig,ax = plt.subplots(1,len(lifetimes),sharey=True,figsize=(10*len(lifetimes),10))
+            plt.subplots_adjust(wspace=0)        
+            for N,ctau in enumerate(lifetimes):
+                for i,cutDesc in enumerate(cutDescriptors):
+                    efficiency=[]
+                    for m in masses:
+                        myCuts=['1',cuts[v][l],cuts['pt'][m],cuts['photons'][m],cuts['misID'][v][l][m],f"((Photon_passCutBasedID[best_2g_idx1_m{m}]+Photon_passCutBasedID[best_2g_idx2_m{m}])==2)",f'(best_2g_dxy_m{m}>-10)']
+                        analysis['signal'][m][ctau]['sum'].define("dummyDCVar",'1.0')
+                        edges,data,w2=analysis['signal'][m][ctau]['sum'].array1d('dummyDCVar',"*".join(myCuts[0:i+1]),('a','a',2,0,2),error_mode='w2')
+                        rate=float(np.sum(data))
+                        error=np.sqrt(w2)
+                        lower=np.sum(error[0,:])
+                        upper=np.sum(error[1,:])
+                        err=0.5*(lower+upper)
+                        efficiency.append([rate,err])
+                    ax[N].errorbar(masses,[s[0] for s in efficiency],[s[1] for s in efficiency],label=cutDesc,fmt='-o',color=colors[i])
+                    ax[N].text(0.1, 0.95, r'$c\tau=$'+f'{ctau} mm' , transform=ax[N].transAxes,
+                       fontsize=20, ha='center', va='center', 
+                       bbox=dict(facecolor='white',edgecolor='none', alpha=0.5))
+
+            mh.cms.label(rlabel="", ax=ax[0], loc=0)
+            mh.cms.label(None,exp='',llabel="", ax=ax[-1], loc=0,lumi=None,com=None,rlabel='13 TeV')
+            ax[-1].set_xlabel(r"$m_{\Phi}$ (GeV)")
+            ax[0].set_ylabel(r"Events for $\mathcal{BR}(H \rightarrow \Phi\Phi)$=0.01")
+            ax[-1].legend(loc='upper right')
+            limits=ax[0].get_ylim()
+            plt.savefig(f'{outputDir}/step_by_step_{ana}_{era}_signal.{file_extension}', dpi=400, bbox_inches='tight')
+                
+            #Now background
+            samp=['W+jets','DY+jets','tt+Jets']
+            samps = ['wjets','zjets','tt']
+            if ana in ['zee2g','zmm2g']:
+                samp=['DY+jets','tt+Jets']
+                samps=['zjets','tt']
+            fig,ax = plt.subplots(1,len(samp),sharey=True,figsize=(10*len(samp),10))
+            plt.subplots_adjust(wspace=0)
+
+            for N,bkg in enumerate(samps):
+                for i,cutDesc in enumerate(cutDescriptors):
+                    efficiency=[]
+                    analysis[bkg].define("dummyDCVar",'1.0')                    
+                    for m in masses:
+                        myCuts=['1',cuts[v][l],cuts['pt'][m],cuts['photons'][m],cuts['misID'][v][l][m],f"((Photon_passCutBasedID[best_2g_idx1_m{m}]+Photon_passCutBasedID[best_2g_idx2_m{m}])==2)",f'(best_2g_dxy_m{m}>-10)']
+                        edges,data,w2=analysis[bkg].array1d('dummyDCVar',"*".join(myCuts[0:i+1]),('a','a',2,0,2),error_mode='w2')
+                        rate=float(np.sum(data))
+                        error=np.sqrt(w2)
+                        lower=np.sum(error[0,:])
+                        upper=np.sum(error[1,:])
+                        err=0.5*(lower+upper)
+                        efficiency.append([rate,err])
+                    ax[N].errorbar(masses,[s[0] for s in efficiency],[s[1] for s in efficiency],label=cutDesc,fmt='-o',color=colors[i])
+                    ax[N].text(0.1, 0.95, samp[N] , transform=ax[N].transAxes,
+                       fontsize=20, ha='center', va='center', 
+                       bbox=dict(facecolor='white',edgecolor='none', alpha=0.5))
+
+            mh.cms.label(rlabel="", ax=ax[0], loc=0)
+            mh.cms.label(None,exp='',llabel="", ax=ax[-1], loc=0,lumi=None,com=None,rlabel='13 TeV')
+            ax[-1].set_xlabel(r"$m_{\Phi}$ hypothesis (GeV)")
+            ax[0].set_ylabel(r"Events")
+            ax[-1].legend(loc='upper right')
+#            ax[0].legend(loc='upper left')
+#            limits=ax[0].get_ylim()
+            ax[0].set_ylim(1e-1,1e+9)
+            if ana in ['zee2g','zmm2g']:
+                ax[0].set_ylim(1e-3,1e+7)
+            
+            ax[0].set_yscale('log')
+            plt.savefig(f'{outputDir}/step_by_step_{ana}_{era}_bkg.{file_extension}', dpi=400, bbox_inches='tight')
+
+
+                    
+                    
+                
+        
 
 
             

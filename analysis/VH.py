@@ -375,6 +375,8 @@ def wmunuH(data,phi_mass,sample):
         
     return actions
 
+
+
 def wmugamma(data,sample):
     actions=[]
 
@@ -412,6 +414,45 @@ def wmugamma(data,sample):
     for tree in ['Runs']:
         actions.append(dataframe[tree].Snapshot(tree, sample+".root", "", opts))        
     return actions
+
+
+def wegamma(data,phi_mass,sample):
+    actions=[]
+
+    #Declare dataframe and load all meta data 
+    dataframe =load_meta_data(data)
+    ####################
+    #ANALYSIS CODE HERE#        
+    ####################
+    wen = dataframe['Events'].Filter("isGoodLumi", "passed_lumiFilter")
+    wen = wen.Filter('HLT_passed', 'passed_HLT')
+    if data['isMC']:
+        wen = wen.Define("Pileup_weight", "getPUweight(Pileup_nPU, puWeight_{}, sample_isMC)".format(data['era']))
+        if data['customNanoAOD']:
+            wen = genAna(wen)
+
+    wen = muonAna(wen, data['era'])
+    wen = electronAna(wen, data['era'])
+
+    wen = wen.Filter("Electron_ntight==1", "exactly_1_tight_electron")
+    ptThresh = 35
+    wen = wen.Filter("Sum(Electron_pt[tight_electron]>{})>0".format(ptThresh), "electron_pt_over{}".format(ptThresh))
+    wen = makeW(wen, "Electron")
+
+    weg = wen.Filter('Sum(Photon_preselection==1)>0', "at_least_1_preselection_photons")
+    
+    actions.append(weg.Snapshot('wegamma', sample+".root", cols, opts))
+    report = ROOT.RDataFrame(1)
+    r = wen2g.Report()
+    for cut in r:
+        report = report.Define("report_{}_all".format(cut.GetName()), "{}".format(cut.GetAll()))
+        report = report.Define("report_{}_pass".format(cut.GetName()), "{}".format(cut.GetPass()))
+    actions.append(report.Snapshot("Report_wegamma", sample+'.root', "", opts))
+    for tree in ['Runs']:
+        actions.append(dataframe[tree].Snapshot(tree, sample+".root", "", opts))
+
+    return actions
+
 
 def zmumuH(data,phi_mass,sample):
     actions=[]
@@ -499,4 +540,5 @@ def analysis(data,sample):
     actions.extend(wmunuH(data,phi_mass,sample))
     actions.extend(wenuH(data,phi_mass,sample))
     actions.extend(wmugamma(data,sample))
+    actions.extend(wegamma(data,sample))
     return actions

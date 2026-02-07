@@ -438,12 +438,13 @@ def wegamma(data,sample):
     ptThresh = 35
     wen = wen.Filter("Sum(Electron_pt[tight_electron]>{})>0".format(ptThresh), "electron_pt_over{}".format(ptThresh))
     wen = makeW(wen, "Electron")
+    wen = photonAna(wen, data['era'])
 
     weg = wen.Filter('Sum(Photon_preselection==1)>0', "at_least_1_preselection_photons")
     
     actions.append(weg.Snapshot('wegamma', sample+".root", cols, opts))
     report = ROOT.RDataFrame(1)
-    r = wen2g.Report()
+    r = weg.Report()
     for cut in r:
         report = report.Define("report_{}_all".format(cut.GetName()), "{}".format(cut.GetAll()))
         report = report.Define("report_{}_pass".format(cut.GetName()), "{}".format(cut.GetPass()))

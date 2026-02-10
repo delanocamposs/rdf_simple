@@ -184,14 +184,3 @@ RVecI passPhIso(RVecI bitmaps){
   }
   return out;
 }
-
-RVecI passPhIso_Run3(RVecI bitmaps){
-  RVecI out;
-  out.reserve(bitmaps.size());
-  for (size_t i = 0; i < bitmaps.size(); i++){
-    int bitmap = bitmaps[i];
-    bool pass = (bitmap>>12&3) >= 1;
-    out.emplace_back(pass);
-  }
-  return out;
-}

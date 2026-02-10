@@ -83,7 +83,7 @@ samples_data_2024 = {
 #                    'era': '2024',
 #                    'jobs':16}
 
-'ScoutingEG_2024I':{'dataset': "/ScoutingPFRun3/Run2024I-PromptReco-v1/NANOAOD",
+'ScoutingEG_2024I':{'dataset': "/ScoutingPFRun3/Run2024I-ScoutNano-v1/NANOAOD",
                     'veto_triggers': [],
                     'triggers':['1'],
                     'isScouting':1,

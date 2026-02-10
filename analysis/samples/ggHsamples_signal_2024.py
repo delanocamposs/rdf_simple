@@ -1,12 +1,11 @@
-samples_signal_2018 = {}
-samples_signal_2018[f"ggH_M30_ctau0_UL18"] = {
-                    'dataset': f"local:/uscms/home/dacampos/nobackup/rdf_simple_nocondor/ggH_M30_ctau-0mm_2018.root",
+samples_signal_2024 = {}
+samples_signal_2024[f"ggH_M15_ctau0_2024"] = {
+                    'dataset': f"local:/uscms/home/dacampos/nobackup/rdf_simple_nocondor/ggH_M15_ctau-0mm_2024.root",
                     'triggers': ['HLT_DoublePhoton33_CaloIdL'],
                     'isMC':1,
                     'veto_triggers': [],
-                    'era': '2018',
-                    'sigma': 1.0,
-                    'customNanoAOD': True}
+                    'era': '2024',
+                    'sigma': 1.0}
 
 #samples_signal_2018["ggH_M30_ctau0"] = {'dataset': "local:/uscms/home/dacampos/nobackup/rdf_simple_nocondor/ggH_M30_ctau-0cm.root",
 #                    'triggers': ['HLT_TriplePhoton_20_20_20_CaloIdLV2'],

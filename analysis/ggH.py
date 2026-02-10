@@ -105,7 +105,43 @@ def save_report(df, report_name, sample, opts, actions):
         actions.append(report.Snapshot(report_name, f"{sample}.root", "", opts))
 
 def ggH(data,phi_mass,sample):
-    cols = "best_.*|sample_.*|^Photon_.*|^Electron_.*|Weight.*|^Gen.*|^weight.*|^TrigObj_.*|^event.*|^Pileup_.*|^run.*|gen.*|.*LHE.*|^PV.*|luminosity|Block|genWeight|HLT_passed|sorted_photon_pt"
+    def emulate_scouting_trigger(df):
+        ROOT.gInterpreter.Declare(r'''
+        #include "ROOT/RVec.hxx"
+        #include <cmath>
+        using namespace ROOT;
+        using namespace ROOT::VecOps;
+        
+        bool PassL1DoubleEG(const RVec<float>& pt,
+                            const RVec<float>& eta,
+                            const RVec<float>& phi,
+                            float thrLeading, float thrSubleading) {
+            const size_t n = pt.size();
+            if (n < 2) return false;
+            if (eta.size() != n || phi.size() != n) return false;
+            for (size_t i = 0; i < n; ++i) {
+                if (std::abs(eta[i]) > 1.2f) continue;
+                for (size_t j = i + 1; j < n; ++j) {
+                    if (std::abs(eta[j]) > 1.2f) continue;
+                    const bool passEt =
+                        (pt[i] >= thrLeading && pt[j] >= thrSubleading) ||
+                        (pt[j] >= thrLeading && pt[i] >= thrSubleading);
+                    if (!passEt) continue;
+                    const float dr = DeltaR(eta[i], eta[j], phi[i], phi[j]);
+                    if (dr < 0.6f) return true;
+                }
+            }
+            return false;
+        }
+        ''')
+        df=df.Define("Pass_L1_DoubleEG15_11", "PassL1DoubleEG(Photon_pt, Photon_eta, Photon_phi, 15.0f, 11.0f)")
+        df=df.Define("Pass_L1_DoubleEG16_11", "PassL1DoubleEG(Photon_pt, Photon_eta, Photon_phi, 16.0f, 11.0f)")
+        df=df.Define("Pass_L1_DoubleEG17_11", "PassL1DoubleEG(Photon_pt, Photon_eta, Photon_phi, 17.0f, 11.0f)")
+        df=df.Define("Pass_L1_DoubleEG_OR",   "Pass_L1_DoubleEG15_11 || Pass_L1_DoubleEG16_11 || Pass_L1_DoubleEG17_11")
+        return df
+
+
+    cols = "best_.*|sample_.*|^Photon_.*|^Electron_.*|Weight.*|^Gen.*|^weight.*|^TrigObj_.*|^event.*|^Pileup_.*|^run.*|gen.*|.*LHE.*|^PV.*|luminosity|Block|genWeight|HLT_passed|sorted_photon_pt|Pass_L1_DoubleEG15_11|Pass_L1_DoubleEG16_11|Pass_L1_DoubleEG17_11|Pass_L1_DoubleEG_OR"
     actions=[]
 
     #Declare dataframe and load all meta data 
@@ -114,7 +150,7 @@ def ggH(data,phi_mass,sample):
 
 
     if data["isMC"]:
-        ggH = ggH.Define("Pileup_weight", "getPUweight(Pileup_nPU, puWeight_UL{}, sample_isMC)".format(data["era"]))
+        ggH = ggH.Define("Pileup_weight", "getPUweight(Pileup_nPU, puWeight_{}, sample_isMC)".format(data["era"]))
 
     
 
@@ -135,6 +171,7 @@ def ggH(data,phi_mass,sample):
         ggH=photonAna(ggH)
         ggH4g=ggH.Filter('nPhoton>3','at_least_4_photons')
     
+    ggH4g=emulate_scouting_trigger(ggH4g)
     ggH4g=ggH4g.Filter('Sum(Photon_preselection==1)>3','at_least_3_preselected_photons')
 
     def four_gamma(df, mass, scouting):
@@ -326,6 +363,7 @@ def ggH(data,phi_mass,sample):
             best_4g_ID_str_ggH4g="{} && {}".format(preselection_str, idnoiso_str)
             df=df.Define('best_4g_ID_m{}'.format(mass),best_4g_ID_str_ggH4g.format(m=mass))
             return df
+    
 
     for mass in phi_mass:
         #Photon_corrIso_m{} needs to be defined first since four_gamma relies on it
@@ -349,7 +387,7 @@ def ggH(data,phi_mass,sample):
         ggH4g=ggH4g.Define('best_4g_phi2_valid_m{}'.format(mass),'raw_best_4g_m{}[15]'.format(mass))
 
 
-    ggH4g=ggH4g.Filter('sample_isMC==1 | non_MC_cut_m30==1','blinding_data_samples')
+    #ggH4g=ggH4g.Filter('sample_isMC==1 | non_MC_cut_m{}==1','blinding_data_samples')
 
     actions.append(ggH4g.Snapshot('ggH4g', f"{sample}_ggH4g.root", cols, opts))
     save_report(ggH4g, "Report_ggH4g", f"{sample}_ggH4g", opts, actions)
@@ -428,6 +466,6 @@ def Zee(data, sample):
 def analysis(data,sample):
     actions=[]
     phi_mass=[7,15,20,30,40,50,55]
-    #actions.extend(ggH(data,phi_mass,sample))
-    actions.extend(Zee(data, sample))
+    actions.extend(ggH(data,phi_mass,sample))
+    #actions.extend(Zee(data, sample))
     return actions

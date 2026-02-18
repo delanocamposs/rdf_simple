@@ -3,6 +3,7 @@ import random
 import numpy as np
 ROOT.gInterpreter.Declare('#include "analysis/ddp_vertex.h"')
 ROOT.gInterpreter.Declare('#include "common/scaleFactors.h"')
+ROOT.gInterpreter.Declare('#include "common/signalEfficiency.h"')
 
 opts = ROOT.RDF.RSnapshotOptions()
 opts.fMode = "UPDATE"

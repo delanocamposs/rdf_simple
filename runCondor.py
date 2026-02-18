@@ -8,7 +8,7 @@ parser = OptionParser()
 parser.add_option("-a", "--analysis", dest="analysis",
                   help="analysis to run",type='str',default='ggH')
 
-parser.add_option("-o", "--eosdir", dest="eos",default='root://cmseos.fnal.gov//store/user/dacampos/analysis/data/Scouting_2024',
+parser.add_option("-o", "--eosdir", dest="eos",default='root://cmseos.fnal.gov//store/user/dacampos/analysis/MC_processed/',
                   help="EOS output Directory")
 parser.add_option("-d", "--donotsubmit", dest="nosubmit",default=0,type=int,
                   help="Do not submit on condor, just show jobs")

@@ -13,15 +13,18 @@ from common.pyhelpers import load_meta_data
 
 #cols = "best_3g.*|best_4g.*|sample_.*|^Photon_.*|^Muon_.*|^Z_.*|Weight.*|^Gen.*|^weight.*|^TrigObj_.*|^event.*|^Electron_.*|^Pileup_.*|^run.*"
 
-iso = {'2016': 'Photon_pfRelIso03_all',
+iso = {'2016preVFP': 'Photon_pfRelIso03_all',
+       '2016postVFP': 'Photon_pfRelIso03_all',
        '2017': 'Photon_pfRelIso03_all',
        '2018': 'Photon_pfRelIso03_all',
-       '2022': 'Photon_pfRelIso03_all_quadratic',
-       '2023': 'Photon_pfRelIso03_all_quadratic',
+       '2022preEE': 'Photon_pfRelIso03_all_quadratic',
+       '2022postEE': 'Photon_pfRelIso03_all_quadratic',
+       '2023preBPix': 'Photon_pfRelIso03_all_quadratic',
+       '2023postBPix': 'Photon_pfRelIso03_all_quadratic',
        '2024': 'Photon_pfRelIso03_all_quadratic'}
 iso_scouting={
-        "2022":"",
-        "2023":"",
+        "2022":"ScoutingPhoton_ecalIso",
+        "2023":"ScoutingPhoton_ecalIso",
         "2024":"ScoutingPhoton_ecalIso"}
 
 def get_ID_val(var, ID_type):
@@ -89,19 +92,17 @@ def photonAna(dataframe):
     photons = dataframe.Define("Photon_preselection", "Photon_pt>20&&!Photon_pixelSeed&&abs(Photon_eta)<2.5&&(abs(Photon_eta)>1.57||abs(Photon_eta)<1.44)&&(Photon_isScEtaEE||Photon_isScEtaEB)")
     #photons = photons.Define("Photon_rho", "fixedGridRhoFastjetAll")
     photons=photons.Define("Photon_PassPhIso" , "passPhIso(Photon_vidNestedWPBitmap)")
-    sieie1, sieie2 = get_ID_val("sieie", "custom")
-    hoe1, hoe2 = get_ID_val("hoe", "custom")
-    photons = photons.Define("Photon_IdNoIso",f"((Photon_isScEtaEB&&Photon_hoe<{hoe1}&&Photon_sieie<{sieie1})||(Photon_isScEtaEE&&Photon_hoe<{hoe2}&&Photon_sieie<{sieie2}))")
+    sieie3, sieie4 = get_ID_val("sieie", "custom")
+    hoe3, hoe4 = get_ID_val("hoe", "custom")
+    photons = photons.Define("Photon_IdNoIso",f"((Photon_isScEtaEB&&Photon_hoe<{hoe3}&&Photon_sieie<{sieie3})||(Photon_isScEtaEE&&Photon_hoe<{hoe4}&&Photon_sieie<{sieie4}))")
     return photons    
 
 def save_report(df, report_name, sample, opts, actions):
-        report = ROOT.RDataFrame(1)  # Create a dummy dataframe with one entry
+        report = ROOT.RDataFrame(1)
         r = df.Report()
         for cut in r:
-            # Define new columns for total and passing entries for each cut
             report = report.Define(f"report_{cut.GetName()}_all", f"{cut.GetAll()}")
             report = report.Define(f"report_{cut.GetName()}_pass", f"{cut.GetPass()}")
-        # Append the snapshot action to the actions list
         actions.append(report.Snapshot(report_name, f"{sample}.root", "", opts))
 
 def ggH(data,phi_mass,sample):
@@ -140,136 +141,30 @@ def ggH(data,phi_mass,sample):
         df=df.Define("Pass_L1_DoubleEG_OR",   "Pass_L1_DoubleEG15_11 || Pass_L1_DoubleEG16_11 || Pass_L1_DoubleEG17_11")
         return df
 
-
-    cols = "best_.*|sample_.*|^Photon_.*|^Electron_.*|Weight.*|^Gen.*|^weight.*|^TrigObj_.*|^event.*|^Pileup_.*|^run.*|gen.*|.*LHE.*|^PV.*|luminosity|Block|genWeight|HLT_passed|sorted_photon_pt|Pass_L1_DoubleEG15_11|Pass_L1_DoubleEG16_11|Pass_L1_DoubleEG17_11|Pass_L1_DoubleEG_OR"
-    actions=[]
-
-    #Declare dataframe and load all meta data 
-    dataframe =load_meta_data(data)
-    ggH=dataframe["Events"]
-
-
-    if data["isMC"]:
-        ggH = ggH.Define("Pileup_weight", "getPUweight(Pileup_nPU, puWeight_{}, sample_isMC)".format(data["era"]))
-
-    
-
-    #Filter out muons above 10Gev and electrons above 15GeV
-    #ggH=electronAna(ggH)
-    #ggH=muonAna(ggH)
-    
-    #ggH=ggH.Filter("Sum(loose_muon==1)==0",'muon_veto')
-    #ggH=ggH.Filter("Sum(loose_electron==1)==0",'electron_veto')
-
-    #Add photon preselection and common photon ID definitions 
-    scouting=0
-    if dataframe['isScouting']==1:
-        scouting=1
-        ggH=photonAnaScouting(ggH)
-        ggH4g=ggH.Filter('nScoutingPhoton>3','at_least_4_photons')
-    else:
-        ggH=photonAna(ggH)
-        ggH4g=ggH.Filter('nPhoton>3','at_least_4_photons')
-    
-    ggH4g=emulate_scouting_trigger(ggH4g)
-    ggH4g=ggH4g.Filter('Sum(Photon_preselection==1)>3','at_least_3_preselected_photons')
-
-    def four_gamma(df, mass, scouting):
-        if scouting==0:
-            df=df.Define('raw_best_4g_m{}'.format(mass),"best_4gamma(Photon_pt,Photon_eta,Photon_phi,Photon_isScEtaEB,Photon_isScEtaEE,Photon_preselection,Photon_IdNoIso,Photon_corrIso_m{},{})".format(mass,float(mass)))
-        else:
-            df=df.Define('raw_best_4g_m{}'.format(mass),"best_4gamma(ScoutingPhoton_pt,ScoutingPhoton_eta,ScoutingPhoton_phi,Photon_isScEtaEB,Photon_isScEtaEE,Photon_preselection,Photon_IdNoIso,Photon_corrIso_m{},{})".format(mass,float(mass)))
+    def four_gamma(df, mass):
+        df=df.Define('raw_best_4g_m{}'.format(mass),"best_4gamma(Photon_pt,Photon_eta,Photon_phi,Photon_isScEtaEB,Photon_isScEtaEE,Photon_preselection,Photon_IdNoIso,Photon_corrIso_m{},{})".format(mass,float(mass)))
         return df
 
-    def isolation_vars(df, mass, scouting):
-        if scouting==0:
-            #pass isolation criteria using bitmap by EGM here: https://twiki.cern.ch/twiki/bin/view/CMS/CutBasedPhotonIdentificationRun2
-            df=df.Define("Photon_passBitMap_loose_iso_gamma1_m{m}".format(m=mass), "Photon_PassPhIso[best_4g_idx1_m{m}]==1".format(m=mass))
-            df=df.Define("Photon_passBitMap_loose_iso_gamma2_m{m}".format(m=mass), "Photon_PassPhIso[best_4g_idx2_m{m}]==1".format(m=mass))
-            df=df.Define("Photon_passBitMap_loose_iso_gamma3_m{m}".format(m=mass), "Photon_PassPhIso[best_4g_idx3_m{m}]==1".format(m=mass))
-            df=df.Define("Photon_passBitMap_loose_iso_gamma4_m{m}".format(m=mass), "Photon_PassPhIso[best_4g_idx4_m{m}]==1".format(m=mass))
-            df=df.Define("Photon_passBitMap_medium_iso_gamma1_m{m}".format(m=mass), "Photon_PassPhIso[best_4g_idx1_m{m}]==2".format(m=mass))
-            df=df.Define("Photon_passBitMap_medium_iso_gamma2_m{m}".format(m=mass), "Photon_PassPhIso[best_4g_idx2_m{m}]==2".format(m=mass))
-            df=df.Define("Photon_passBitMap_medium_iso_gamma3_m{m}".format(m=mass), "Photon_PassPhIso[best_4g_idx3_m{m}]==2".format(m=mass))
-            df=df.Define("Photon_passBitMap_medium_iso_gamma4_m{m}".format(m=mass), "Photon_PassPhIso[best_4g_idx4_m{m}]==2".format(m=mass))
-            df=df.Define("Photon_passBitMap_tight_iso_gamma1_m{m}".format(m=mass), "Photon_PassPhIso[best_4g_idx1_m{m}]==3".format(m=mass))
-            df=df.Define("Photon_passBitMap_tight_iso_gamma2_m{m}".format(m=mass), "Photon_PassPhIso[best_4g_idx2_m{m}]==3".format(m=mass))
-            df=df.Define("Photon_passBitMap_tight_iso_gamma3_m{m}".format(m=mass), "Photon_PassPhIso[best_4g_idx3_m{m}]==3".format(m=mass))
-            df=df.Define("Photon_passBitMap_tight_iso_gamma4_m{m}".format(m=mass), "Photon_PassPhIso[best_4g_idx4_m{m}]==3".format(m=mass))
+    def isolation_vars(df, mass):
+        #pass isolation criteria using bitmap by EGM here: https://twiki.cern.ch/twiki/bin/view/CMS/CutBasedPhotonIdentificationRun2   
+        df=df.Define("Photon_passBitMap_loose_iso_gamma1_m{m}".format(m=mass), "Photon_PassPhIso[best_4g_idx1_m{m}]==1".format(m=mass))
+        df=df.Define("Photon_passBitMap_loose_iso_gamma2_m{m}".format(m=mass), "Photon_PassPhIso[best_4g_idx2_m{m}]==1".format(m=mass))
+        df=df.Define("Photon_passBitMap_loose_iso_gamma3_m{m}".format(m=mass), "Photon_PassPhIso[best_4g_idx3_m{m}]==1".format(m=mass))
+        df=df.Define("Photon_passBitMap_loose_iso_gamma4_m{m}".format(m=mass), "Photon_PassPhIso[best_4g_idx4_m{m}]==1".format(m=mass))
+        df=df.Define("Photon_passBitMap_medium_iso_gamma1_m{m}".format(m=mass), "Photon_PassPhIso[best_4g_idx1_m{m}]==2".format(m=mass))
+        df=df.Define("Photon_passBitMap_medium_iso_gamma2_m{m}".format(m=mass), "Photon_PassPhIso[best_4g_idx2_m{m}]==2".format(m=mass))
+        df=df.Define("Photon_passBitMap_medium_iso_gamma3_m{m}".format(m=mass), "Photon_PassPhIso[best_4g_idx3_m{m}]==2".format(m=mass))
+        df=df.Define("Photon_passBitMap_medium_iso_gamma4_m{m}".format(m=mass), "Photon_PassPhIso[best_4g_idx4_m{m}]==2".format(m=mass))
+        df=df.Define("Photon_passBitMap_tight_iso_gamma1_m{m}".format(m=mass), "Photon_PassPhIso[best_4g_idx1_m{m}]==3".format(m=mass))
+        df=df.Define("Photon_passBitMap_tight_iso_gamma2_m{m}".format(m=mass), "Photon_PassPhIso[best_4g_idx2_m{m}]==3".format(m=mass))
+        df=df.Define("Photon_passBitMap_tight_iso_gamma3_m{m}".format(m=mass), "Photon_PassPhIso[best_4g_idx3_m{m}]==3".format(m=mass))
+        df=df.Define("Photon_passBitMap_tight_iso_gamma4_m{m}".format(m=mass), "Photon_PassPhIso[best_4g_idx4_m{m}]==3".format(m=mass))
  
-            #EVENT-LEVEL BOOLEAN IF BEST 4 PHOTONS PASS LOOSE EGM ISOLATION. THIS IS THE RECOMMENDED METHOD TO ISOLATION ID.
-            df=df.Define("best_4g_passBitMap_loose_iso_m{m}".format(m=mass), "Photon_PassPhIso[best_4g_idx1_m{m}]==1 && Photon_PassPhIso[best_4g_idx2_m{m}]==1 && Photon_PassPhIso[best_4g_idx3_m{m}]==1 && Photon_PassPhIso[best_4g_idx4_m{m}]==1".format(m=mass))
-            df=df.Define("best_4g_passBitMap_medium_iso_m{m}".format(m=mass), "Photon_PassPhIso[best_4g_idx2_m{m}]==2 && Photon_PassPhIso[best_4g_idx2_m{m}]==2 && Photon_PassPhIso[best_4g_idx3_m{m}]==2 && Photon_PassPhIso[best_4g_idx4_m{m}]==2".format(m=mass))
-            df=df.Define("best_4g_passBitMap_tight_iso_m{m}".format(m=mass), "Photon_PassPhIso[best_4g_idx3_m{m}]==3 && Photon_PassPhIso[best_4g_idx2_m{m}]==3 && Photon_PassPhIso[best_4g_idx3_m{m}]==3 && Photon_PassPhIso[best_4g_idx4_m{m}]==3".format(m=mass))
-            return df
-        else:
-            return df
-
-        #the relative isolation values for each of the 4 best photons. i
-        # ANYTHING WITHIN THE EQUAL SIGNS NOT RECOMMENDED TO USE BY EGM - ONLY FOR QUICK STUDIES/TESTS.
-#==========================================================================================================================
-#==========================================================================================================================
-        #df=df.Define("Photon_RelIso_gamma1_m{m}".format(m=mass), "Photon_pfRelIso03_all_quadratic[best_4g_idx1_m{m}]".format(m=mass))
-        #df=df.Define("Photon_RelIso_gamma2_m{m}".format(m=mass), "Photon_pfRelIso03_all_quadratic[best_4g_idx2_m{m}]".format(m=mass))
-        #df=df.Define("Photon_RelIso_gamma3_m{m}".format(m=mass), "Photon_pfRelIso03_all_quadratic[best_4g_idx3_m{m}]".format(m=mass))
-        #df=df.Define("Photon_RelIso_gamma4_m{m}".format(m=mass), "Photon_pfRelIso03_all_quadratic[best_4g_idx4_m{m}]".format(m=mass))
-
-        #sanity checks to be sure the boolean logic on the isolation with the photons is correct. checking the best 4 photons individually. 
-        #i check the n+p iso value, the n+p cut value, if it passes for all 4 then repeat for the charged. crucial to make sure it works.
-        #df=df.Define("Photon_valIso_neutral_plus_photon_gamma1_m{m}".format(m=mass), "Photon_pfRelIso03_all_quadratic[best_4g_idx1_m{m}]-Photon_pfRelIso03_chg[best_4g_idx1_m{m}]".format(m=mass))
-        #df=df.Define("Photon_cutEGMIso_neutral_plus_photon_gamma1_m{m}".format(m=mass), "Photon_looseEGMIso_neutral_plus_photon_cut[best_4g_idx1_m{m}]".format(m=mass))
-        #df=df.Define("Photon_passEGMIso_neutral_plus_photon_gamma1_m{m}".format(m=mass), "Photon_passlooseEGMIso_neutral_plus_photon[best_4g_idx1_m{m}]".format(m=mass))
-        #df=df.Define("Photon_valIso_chg_gamma1_m{m}".format(m=mass), "Photon_pfRelIso03_chg[best_4g_idx1_m{m}]".format(m=mass))
-        #df=df.Define("Photon_cutEGMIso_chg_gamma1_m{m}".format(m=mass), "Photon_looseEGMIso_chg_cut[best_4g_idx1_m{m}]".format(m=mass))
-        #df=df.Define("Photon_passEGMIso_chg_gamma1_m{m}".format(m=mass), "Photon_passlooseEGMIso_charged[best_4g_idx1_m{m}]".format(m=mass))
-        #df=df.Define("Photon_cutcustomIso_neutral_plus_photon_gamma1_m{m}".format(m=mass), "Photon_loosecustomIso_neutral_plus_photon_cut[best_4g_idx1_m{m}]".format(m=mass))
-        #df=df.Define("Photon_passcustomIso_neutral_plus_photon_gamma1_m{m}".format(m=mass), "Photon_passloosecustomIso_neutral_plus_photon[best_4g_idx1_m{m}]".format(m=mass))
-        #df=df.Define("Photon_cutcustomIso_chg_gamma1_m{m}".format(m=mass), "Photon_loosecustomIso_chg_cut[best_4g_idx1_m{m}]".format(m=mass))
-        #df=df.Define("Photon_passcustomIso_chg_gamma1_m{m}".format(m=mass), "Photon_passloosecustomIso_charged[best_4g_idx1_m{m}]".format(m=mass))
-
-        #df=df.Define("Photon_valIso_neutral_plus_photon_gamma2_m{m}".format(m=mass), "Photon_pfRelIso03_all_quadratic[best_4g_idx2_m{m}]-Photon_pfRelIso03_chg[best_4g_idx2_m{m}]".format(m=mass))
-        #df=df.Define("Photon_cutEGMIso_neutral_plus_photon_gamma2_m{m}".format(m=mass), "Photon_looseEGMIso_neutral_plus_photon_cut[best_4g_idx2_m{m}]".format(m=mass))
-        #df=df.Define("Photon_passEGMIso_neutral_plus_photon_gamma2_m{m}".format(m=mass), "Photon_passlooseEGMIso_neutral_plus_photon[best_4g_idx2_m{m}]".format(m=mass))
-        #df=df.Define("Photon_valIso_chg_gamma2_m{m}".format(m=mass), "Photon_pfRelIso03_chg[best_4g_idx2_m{m}]".format(m=mass))
-        #df=df.Define("Photon_cutEGMIso_chg_gamma2_m{m}".format(m=mass), "Photon_looseEGMIso_chg_cut[best_4g_idx2_m{m}]".format(m=mass))
-        #df=df.Define("Photon_passEGMIso_chg_gamma2_m{m}".format(m=mass), "Photon_passlooseEGMIso_charged[best_4g_idx2_m{m}]".format(m=mass))
-        #df=df.Define("Photon_cutcustomIso_neutral_plus_photon_gamma2_m{m}".format(m=mass), "Photon_loosecustomIso_neutral_plus_photon_cut[best_4g_idx2_m{m}]".format(m=mass))
-        #df=df.Define("Photon_passcustomIso_neutral_plus_photon_gamma2_m{m}".format(m=mass), "Photon_passloosecustomIso_neutral_plus_photon[best_4g_idx2_m{m}]".format(m=mass))
-        #df=df.Define("Photon_cutcustomIso_chg_gamma2_m{m}".format(m=mass), "Photon_loosecustomIso_chg_cut[best_4g_idx2_m{m}]".format(m=mass))
-        #df=df.Define("Photon_passcustomIso_chg_gamma2_m{m}".format(m=mass), "Photon_passloosecustomIso_charged[best_4g_idx2_m{m}]".format(m=mass))
-
-        #df=df.Define("Photon_valIso_neutral_plus_photon_gamma3_m{m}".format(m=mass), "Photon_pfRelIso03_all_quadratic[best_4g_idx3_m{m}]-Photon_pfRelIso03_chg[best_4g_idx3_m{m}]".format(m=mass))
-        #df=df.Define("Photon_cutEGMIso_neutral_plus_photon_gamma3_m{m}".format(m=mass), "Photon_looseEGMIso_neutral_plus_photon_cut[best_4g_idx3_m{m}]".format(m=mass))
-        #df=df.Define("Photon_passEGMIso_neutral_plus_photon_gamma3_m{m}".format(m=mass), "Photon_passlooseEGMIso_neutral_plus_photon[best_4g_idx3_m{m}]".format(m=mass))
-        #df=df.Define("Photon_valIso_chg_gamma3_m{m}".format(m=mass), "Photon_pfRelIso03_chg[best_4g_idx3_m{m}]".format(m=mass))
-        #df=df.Define("Photon_cutEGMIso_chg_gamma3_m{m}".format(m=mass), "Photon_looseEGMIso_chg_cut[best_4g_idx3_m{m}]".format(m=mass))
-        #df=df.Define("Photon_passEGMIso_chg_gamma3_m{m}".format(m=mass), "Photon_passlooseEGMIso_charged[best_4g_idx3_m{m}]".format(m=mass))
-        #df=df.Define("Photon_cutcustomIso_neutral_plus_photon_gamma3_m{m}".format(m=mass), "Photon_loosecustomIso_neutral_plus_photon_cut[best_4g_idx3_m{m}]".format(m=mass))
-        #df=df.Define("Photon_passcustomIso_neutral_plus_photon_gamma3_m{m}".format(m=mass), "Photon_passloosecustomIso_neutral_plus_photon[best_4g_idx3_m{m}]".format(m=mass))
-        #df=df.Define("Photon_cutcustomIso_chg_gamma3_m{m}".format(m=mass), "Photon_loosecustomIso_chg_cut[best_4g_idx3_m{m}]".format(m=mass))
-        #df=df.Define("Photon_passcustomIso_chg_gamma3_m{m}".format(m=mass), "Photon_passloosecustomIso_charged[best_4g_idx3_m{m}]".format(m=mass))
-
-        #df=df.Define("Photon_valIso_neutral_plus_photon_gamma4_m{m}".format(m=mass), "Photon_pfRelIso03_all_quadratic[best_4g_idx4_m{m}]-Photon_pfRelIso03_chg[best_4g_idx4_m{m}]".format(m=mass))
-        #df=df.Define("Photon_cutEGMIso_neutral_plus_photon_gamma4_m{m}".format(m=mass), "Photon_looseEGMIso_neutral_plus_photon_cut[best_4g_idx4_m{m}]".format(m=mass))
-        #df=df.Define("Photon_passEGMIso_neutral_plus_photon_gamma4_m{m}".format(m=mass), "Photon_passlooseEGMIso_neutral_plus_photon[best_4g_idx4_m{m}]".format(m=mass))
-        #df=df.Define("Photon_valIso_chg_gamma4_m{m}".format(m=mass), "Photon_pfRelIso03_chg[best_4g_idx4_m{m}]".format(m=mass))
-        #df=df.Define("Photon_cutEGMIso_chg_gamma4_m{m}".format(m=mass), "Photon_looseEGMIso_chg_cut[best_4g_idx4_m{m}]".format(m=mass))
-        #df=df.Define("Photon_passEGMIso_chg_gamma4_m{m}".format(m=mass), "Photon_passlooseEGMIso_charged[best_4g_idx4_m{m}]".format(m=mass))
-        #df=df.Define("Photon_cutcustomIso_neutral_plus_photon_gamma4_m{m}".format(m=mass), "Photon_loosecustomIso_neutral_plus_photon_cut[best_4g_idx4_m{m}]".format(m=mass))
-        #df=df.Define("Photon_passcustomIso_neutral_plus_photon_gamma4_m{m}".format(m=mass), "Photon_passloosecustomIso_neutral_plus_photon[best_4g_idx4_m{m}]".format(m=mass))
-        #df=df.Define("Photon_cutcustomIso_chg_gamma4_m{m}".format(m=mass), "Photon_loosecustomIso_chg_cut[best_4g_idx4_m{m}]".format(m=mass))
-        #df=df.Define("Photon_passcustomIso_chg_gamma4_m{m}".format(m=mass), "Photon_passloosecustomIso_charged[best_4g_idx4_m{m}]".format(m=mass))
-       
-        #here are event-level booleans to see if all of the best 4 photons pass the threshold cuts for min(neutral, photon) and charged iso cuts. see chelpers.h for functions
-        #df=df.Define("best_4g_passLooseEGMIso_neutral_plus_photon_m{m}".format(m=mass), "(Photon_passlooseEGMIso_neutral_plus_photon[best_4g_idx1_m{m}]==1)&&(Photon_passlooseEGMIso_neutral_plus_photon[best_4g_idx2_m{m}]==1)&&(Photon_passlooseEGMIso_neutral_plus_photon[best_4g_idx3_m{m}]==1)&&(Photon_passlooseEGMIso_neutral_plus_photon[best_4g_idx4_m{m}]==1)".format(m=mass))
-        #df=df.Define("best_4g_passLooseEGMIso_charged_m{m}".format(m=mass), "(Photon_passlooseEGMIso_charged[best_4g_idx1_m{m}]==1)&&(Photon_passlooseEGMIso_charged[best_4g_idx2_m{m}]==1)&&(Photon_passlooseEGMIso_charged[best_4g_idx3_m{m}]==1)&&(Photon_passlooseEGMIso_charged[best_4g_idx4_m{m}]==1)".format(m=mass))
-        #df=df.Define("best_4g_passLooseEGMIso_m{m}".format(m=mass), "best_4g_passLooseEGMIso_neutral_plus_photon_m{m} && best_4g_passLooseEGMIso_charged_m{m}".format(m=mass))
-
-        #df=df.Define("best_4g_passcustomIso_neutral_plus_photon_m{m}".format(m=mass), "(Photon_passloosecustomIso_neutral_plus_photon[best_4g_idx1_m{m}]==1)&&(Photon_passloosecustomIso_neutral_plus_photon[best_4g_idx2_m{m}]==1)&&(Photon_passloosecustomIso_neutral_plus_photon[best_4g_idx3_m{m}]==1)&&(Photon_passloosecustomIso_neutral_plus_photon[best_4g_idx4_m{m}]==1)".format(m=mass))
-        #df=df.Define("best_4g_passcustomIso_charged_m{m}".format(m=mass), "(Photon_passloosecustomIso_charged[best_4g_idx1_m{m}]==1)&&(Photon_passloosecustomIso_charged[best_4g_idx2_m{m}]==1)&&(Photon_passloosecustomIso_charged[best_4g_idx3_m{m}]==1)&&(Photon_passloosecustomIso_charged[best_4g_idx4_m{m}]==1)".format(m=mass))
-        #df=df.Define("best_4g_passLoosecustomIso_m{m}".format(m=mass), "best_4g_passcustomIso_neutral_plus_photon_m{m} && best_4g_passcustomIso_charged_m{m}".format(m=mass))
-#==========================================================================================================================
-#==========================================================================================================================
+        #EVENT-LEVEL BOOLEAN IF BEST 4 PHOTONS PASS LOOSE EGM ISOLATION. THIS IS THE RECOMMENDED METHOD TO ISOLATION ID.
+        df=df.Define("best_4g_passBitMap_loose_iso_m{m}".format(m=mass), "Photon_PassPhIso[best_4g_idx1_m{m}]==1 && Photon_PassPhIso[best_4g_idx2_m{m}]==1 && Photon_PassPhIso[best_4g_idx3_m{m}]==1 && Photon_PassPhIso[best_4g_idx4_m{m}]==1".format(m=mass))
+        df=df.Define("best_4g_passBitMap_medium_iso_m{m}".format(m=mass), "Photon_PassPhIso[best_4g_idx2_m{m}]==2 && Photon_PassPhIso[best_4g_idx2_m{m}]==2 && Photon_PassPhIso[best_4g_idx3_m{m}]==2 && Photon_PassPhIso[best_4g_idx4_m{m}]==2".format(m=mass))
+        df=df.Define("best_4g_passBitMap_tight_iso_m{m}".format(m=mass), "Photon_PassPhIso[best_4g_idx3_m{m}]==3 && Photon_PassPhIso[best_4g_idx2_m{m}]==3 && Photon_PassPhIso[best_4g_idx3_m{m}]==3 && Photon_PassPhIso[best_4g_idx4_m{m}]==3".format(m=mass))
+        return df
 
     def corrected_kinematic_vars(df, mass):
         #pt's
@@ -301,33 +196,19 @@ def ggH(data,phi_mass,sample):
         df=df.Define('best_4g_phi2_dxy_m{}'.format(mass),'raw_best_4g_m{}[14]'.format(mass))
         return df
     
-    def uncorrected_kinematic_vars(df, mass, scouting):
-        if scouting==0:
-            df=df.Define('Photon_pt_gamma1_m{m}'.format(m=mass),'Photon_pt[best_4g_idx1_m{m}]'.format(m=mass)) 
-            df=df.Define('Photon_pt_gamma2_m{m}'.format(m=mass),'Photon_pt[best_4g_idx2_m{m}]'.format(m=mass)) 
-            df=df.Define('Photon_pt_gamma3_m{m}'.format(m=mass),'Photon_pt[best_4g_idx3_m{m}]'.format(m=mass)) 
-            df=df.Define('Photon_pt_gamma4_m{m}'.format(m=mass),'Photon_pt[best_4g_idx4_m{m}]'.format(m=mass)) 
-            df=df.Define('Photon_hoe_gamma1_m{m}'.format(m=mass),'Photon_hoe[best_4g_idx1_m{m}]'.format(m=mass)) 
-            df=df.Define('Photon_hoe_gamma2_m{m}'.format(m=mass),'Photon_hoe[best_4g_idx2_m{m}]'.format(m=mass)) 
-            df=df.Define('Photon_hoe_gamma3_m{m}'.format(m=mass),'Photon_hoe[best_4g_idx3_m{m}]'.format(m=mass)) 
-            df=df.Define('Photon_hoe_gamma4_m{m}'.format(m=mass),'Photon_hoe[best_4g_idx4_m{m}]'.format(m=mass)) 
-            df=df.Define('Photon_sieie_gamma1_m{m}'.format(m=mass),'Photon_sieie[best_4g_idx1_m{m}]'.format(m=mass)) 
-            df=df.Define('Photon_sieie_gamma2_m{m}'.format(m=mass),'Photon_sieie[best_4g_idx2_m{m}]'.format(m=mass)) 
-            df=df.Define('Photon_sieie_gamma3_m{m}'.format(m=mass),'Photon_sieie[best_4g_idx3_m{m}]'.format(m=mass)) 
-            df=df.Define('Photon_sieie_gamma4_m{m}'.format(m=mass),'Photon_sieie[best_4g_idx4_m{m}]'.format(m=mass)) 
-        else:
-            df=df.Define('Photon_pt_gamma1_m{m}'.format(m=mass),'ScoutingPhoton_pt[best_4g_idx1_m{m}]'.format(m=mass)) 
-            df=df.Define('Photon_pt_gamma2_m{m}'.format(m=mass),'ScoutingPhoton_pt[best_4g_idx2_m{m}]'.format(m=mass)) 
-            df=df.Define('Photon_pt_gamma3_m{m}'.format(m=mass),'ScoutingPhoton_pt[best_4g_idx3_m{m}]'.format(m=mass)) 
-            df=df.Define('Photon_pt_gamma4_m{m}'.format(m=mass),'ScoutingPhoton_pt[best_4g_idx4_m{m}]'.format(m=mass)) 
-            df=df.Define('Photon_hoe_gamma1_m{m}'.format(m=mass),'ScoutingPhoton_hOverE[best_4g_idx1_m{m}]'.format(m=mass)) 
-            df=df.Define('Photon_hoe_gamma2_m{m}'.format(m=mass),'ScoutingPhoton_hOverE[best_4g_idx2_m{m}]'.format(m=mass)) 
-            df=df.Define('Photon_hoe_gamma3_m{m}'.format(m=mass),'ScoutingPhoton_hOverE[best_4g_idx3_m{m}]'.format(m=mass)) 
-            df=df.Define('Photon_hoe_gamma4_m{m}'.format(m=mass),'ScoutingPhoton_hOverE[best_4g_idx4_m{m}]'.format(m=mass)) 
-            df=df.Define('Photon_sieie_gamma1_m{m}'.format(m=mass),'ScoutingPhoton_sigmaIetaIeta[best_4g_idx1_m{m}]'.format(m=mass)) 
-            df=df.Define('Photon_sieie_gamma2_m{m}'.format(m=mass),'ScoutingPhoton_sigmaIetaIeta[best_4g_idx2_m{m}]'.format(m=mass)) 
-            df=df.Define('Photon_sieie_gamma3_m{m}'.format(m=mass),'ScoutingPhoton_sigmaIetaIeta[best_4g_idx3_m{m}]'.format(m=mass)) 
-            df=df.Define('Photon_sieie_gamma4_m{m}'.format(m=mass),'ScoutingPhoton_sigmaIetaIeta[best_4g_idx4_m{m}]'.format(m=mass)) 
+    def uncorrected_kinematic_vars(df, mass):
+        df=df.Define('Photon_pt_gamma1_m{m}'.format(m=mass),'Photon_pt[best_4g_idx1_m{m}]'.format(m=mass)) 
+        df=df.Define('Photon_pt_gamma2_m{m}'.format(m=mass),'Photon_pt[best_4g_idx2_m{m}]'.format(m=mass)) 
+        df=df.Define('Photon_pt_gamma3_m{m}'.format(m=mass),'Photon_pt[best_4g_idx3_m{m}]'.format(m=mass)) 
+        df=df.Define('Photon_pt_gamma4_m{m}'.format(m=mass),'Photon_pt[best_4g_idx4_m{m}]'.format(m=mass)) 
+        df=df.Define('Photon_hoe_gamma1_m{m}'.format(m=mass),'Photon_hoe[best_4g_idx1_m{m}]'.format(m=mass)) 
+        df=df.Define('Photon_hoe_gamma2_m{m}'.format(m=mass),'Photon_hoe[best_4g_idx2_m{m}]'.format(m=mass)) 
+        df=df.Define('Photon_hoe_gamma3_m{m}'.format(m=mass),'Photon_hoe[best_4g_idx3_m{m}]'.format(m=mass)) 
+        df=df.Define('Photon_hoe_gamma4_m{m}'.format(m=mass),'Photon_hoe[best_4g_idx4_m{m}]'.format(m=mass)) 
+        df=df.Define('Photon_sieie_gamma1_m{m}'.format(m=mass),'Photon_sieie[best_4g_idx1_m{m}]'.format(m=mass)) 
+        df=df.Define('Photon_sieie_gamma2_m{m}'.format(m=mass),'Photon_sieie[best_4g_idx2_m{m}]'.format(m=mass)) 
+        df=df.Define('Photon_sieie_gamma3_m{m}'.format(m=mass),'Photon_sieie[best_4g_idx3_m{m}]'.format(m=mass)) 
+        df=df.Define('Photon_sieie_gamma4_m{m}'.format(m=mass),'Photon_sieie[best_4g_idx4_m{m}]'.format(m=mass)) 
         return df
 
     def indices(df, mass):
@@ -348,48 +229,80 @@ def ggH(data,phi_mass,sample):
         df=df.Define('best_4g_preselected_m{m}'.format(m=mass),'Photon_preselection[best_4g_idx1_m{m}] && Photon_preselection[best_4g_idx2_m{m}] && Photon_preselection[best_4g_idx3_m{m}] && Photon_preselection[best_4g_idx4_m{m}]'.format(m=mass)) 
         return df
     
-    def IDs(df, mass, scouting):
-        df=df.Define('best_4g_sumID_m{}'.format(mass),'raw_best_4g_m{m}[20]+raw_best_4g_m{m}[21]+raw_best_4g_m{m}[22]+raw_best_4g_m{m}[23]'.format(m=mass))
-        if scouting==0:
-            preselection_str = " && ".join(f"(Photon_preselection[raw_best_4g_m{{m}}[{i}]]==1)" for i in range(24,28))
-            idnoiso_str = " && ".join(f"(Photon_IdNoIso[raw_best_4g_m{{m}}[{i}]]==1)" for i in range(24,28))
-            iso_str = " && ".join(f"(Photon_PassPhIso[raw_best_4g_m{{m}}[{i}]]==1)" for i in range(24,28))
-            best_4g_ID_str_ggH4g="{} && {} && {}".format(preselection_str, idnoiso_str, iso_str)
-            df=df.Define('best_4g_ID_m{}'.format(mass),best_4g_ID_str_ggH4g.format(m=mass))
-            return df
+    def IDs(df, mass):
+        df=df.Define('best_4g_sumID_m{}'.format(mass),'raw_best_4g_m{m}[20]+raw_best_4g_m{m}[21]+raw_best_4g_m{m}[22]+raw_best_4g_m{m}[23]'.format(m=mass)) 
+        preselection_str = " && ".join(f"(Photon_preselection[raw_best_4g_m{{m}}[{i}]]==1)" for i in range(24,28))
+        idnoiso_str = " && ".join(f"(Photon_IdNoIso[raw_best_4g_m{{m}}[{i}]]==1)" for i in range(24,28))
+        iso_str = " && ".join(f"(Photon_PassPhIso[raw_best_4g_m{{m}}[{i}]]==1)" for i in range(24,28))
+        best_4g_ID_str_ggH4g="{} && {} && {}".format(preselection_str, idnoiso_str, iso_str)
+        df=df.Define('best_4g_ID_m{}'.format(mass),best_4g_ID_str_ggH4g.format(m=mass))
+        return df
+
+    def scale_factors(df, era):
+        if era in ['2023preBPix', '2023postBPix']:
+            df=df.Define("pho_SFs_id", f"scaleFactors_3d(Photon_phi, Photon_eta, Photon_pt, PHO_ID_{era}_sf, PHO_ID_{era}_binsX, PHO_ID_{era}_binsY, PHO_ID_{era}_binsZ, sample_isMC, Photon_passCustomCutBasedID)")
         else:
-            preselection_str = " && ".join(f"(Photon_preselection[raw_best_4g_m{{m}}[{i}]]==1)" for i in range(24,28))
-            idnoiso_str = " && ".join(f"(Photon_IdNoIso[raw_best_4g_m{{m}}[{i}]]==1)" for i in range(24,28))
-            best_4g_ID_str_ggH4g="{} && {}".format(preselection_str, idnoiso_str)
-            df=df.Define('best_4g_ID_m{}'.format(mass),best_4g_ID_str_ggH4g.format(m=mass))
-            return df
+            df=df.Define("pho_SFs_id", f"scaleFactors_2d(Photon_eta, Photon_pt, PHO_ID_{era}_sf, PHO_ID_{era}_binsX, PHO_ID_{era}_binsY, sample_isMC, Photon_passCustomCutBasedID)")
+        df=df.Define("Photon_idSF_val", "pho_SFs_id[0]")
+        df=df.Define("Photon_idSF_up", "pho_SFs_id[1]+pho_SFs_id[0]")
+        df=df.Define("Photon_idSF_down", "pho_SFs_id[0]-pho_SFs_id[1]")
     
+        df=df.Define("pho_SFs_pix", f"getPixelSeedSF(Photon_isScEtaEB, Photon_isScEtaEE, hasPix_{era}_sf, sample_isMC, !Photon_pixelSeed)")
+        df=df.Define("Photon_pixSF_val", "pho_SFs_pix[0]")
+        df=df.Define("Photon_pixSF_up", "pho_SFs_pix[0]+pho_SFs_pix[1]")
+        df=df.Define("Photon_pixSF_down", "pho_SFs_pix[0]-pho_SFs_pix[1]")
+        return df
+
+#++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+
+    cols = "best_.*|sample_.*|^Photon_.*|^Electron_.*|Weight.*|^Gen.*|^weight.*|^TrigObj_.*|^event.*|^Pileup_.*|^run.*|gen.*|.*LHE.*|^PV.*|luminosity|Block|genWeight|HLT_passed|sorted_photon_pt|Pass_L1_DoubleEG15_11|Pass_L1_DoubleEG16_11|Pass_L1_DoubleEG17_11|Pass_L1_DoubleEG_OR"
+    actions=[]
+
+    dataframe =load_meta_data(data)
+    ggH=dataframe["Events"]
+    era=data['era']
+
+    if data["isMC"]:
+        ggH = ggH.Define("Pileup_weight", f"getPUweight(Pileup_nPU, puWeight_{era}, sample_isMC)")
+
+    #ggH=electronAna(ggH)
+    #ggH=muonAna(ggH)
+    
+    #ggH=ggH.Filter("Sum(loose_muon==1)==0",'muon_veto')
+    #ggH=ggH.Filter("Sum(loose_electron==1)==0",'electron_veto')
+
+    ggH=photonAna(ggH)
+    ggH4g=ggH.Filter('nPhoton>3','at_least_4_photons')
+    
+    #ggH4g=emulate_scouting_trigger(ggH4g)
+    ggH4g=ggH4g.Filter('Sum(Photon_preselection==1)>3','at_least_3_preselected_photons')
 
     for mass in phi_mass:
         #Photon_corrIso_m{} needs to be defined first since four_gamma relies on it
-        if scouting==0:
-            ggH4g=ggH4g.Define(f'Photon_corrIso_m{mass}','correct_gammaIso(Photon_pt,Photon_eta,Photon_phi,{},Photon_preselection)'.format(iso[data['era']]))
-        else:
-            ggH4g=ggH4g.Define(f'Photon_corrIso_m{mass}','correct_gammaIso(ScoutingPhoton_pt,ScoutingPhoton_eta,ScoutingPhoton_phi,{},Photon_preselection)'.format(iso_scouting[data['era']]))
+        ggH4g=ggH4g.Define(f'Photon_corrIso_m{mass}',f"correct_gammaIso(Photon_pt,Photon_eta,Photon_phi,{iso[data['era']]},Photon_preselection)")
 
         #organizing the branch definitions into functions that couple related branches
-        ggH4g=four_gamma(ggH4g, mass, scouting)
+        ggH4g=four_gamma(ggH4g, mass)
         ggH4g=indices(ggH4g, mass)
         ggH4g=corrected_kinematic_vars(ggH4g, mass)
-        ggH4g=uncorrected_kinematic_vars(ggH4g, mass, scouting)
+        ggH4g=uncorrected_kinematic_vars(ggH4g, mass)
         ggH4g=preselection(ggH4g, mass)
-        ggH4g=isolation_vars(ggH4g, mass, scouting)
+        ggH4g=isolation_vars(ggH4g, mass)
         ggH4g=masses(ggH4g, mass)
-        ggH4g=IDs(ggH4g, mass, scouting)
+        ggH4g=IDs(ggH4g, mass)
 
-        ggH4g=ggH4g.Define('non_MC_cut_m{}'.format(mass),'sample_isMC==0 && best_4g_uncorr_mass_m{m}<90|best_4g_uncorr_mass_m{m}>150'.format(m=mass))
+        #ggH4g=ggH4g.Define('non_MC_cut_m{}'.format(mass),'sample_isMC==0 && best_4g_uncorr_mass_m{m}<90|best_4g_uncorr_mass_m{m}>150'.format(m=mass))
         ggH4g=ggH4g.Define('best_4g_phi1_valid_m{}'.format(mass),'raw_best_4g_m{}[7]'.format(mass))
         ggH4g=ggH4g.Define('best_4g_phi2_valid_m{}'.format(mass),'raw_best_4g_m{}[15]'.format(mass))
 
 
-    #ggH4g=ggH4g.Filter('sample_isMC==1 | non_MC_cut_m{}==1','blinding_data_samples')
+    #ggH4g=ggH4g.Filter(f'sample_isMC==1 | non_MC_cut_m{m}==1','blinding_data_samples')
 
+    ggH4g=ggH4g.Define("Photon_passCustomCutBasedID", "Photon_preselection==1 && Photon_IdNoIso==1 && Photon_PassPhIso==1")
+    ggH4g=scale_factors(ggH4g,era)
     actions.append(ggH4g.Snapshot('ggH4g', f"{sample}_ggH4g.root", cols, opts))
+
     save_report(ggH4g, "Report_ggH4g", f"{sample}_ggH4g", opts, actions)
     for tree in ['Runs']:
         actions.append(dataframe[tree].Snapshot(tree, f"{sample}_ggH4g.root", "", opts))

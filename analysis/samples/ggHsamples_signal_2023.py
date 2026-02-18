@@ -21,8 +21,8 @@ datasets={
 
 
 
-for mass in [55]:
-    for ct in [1000]:
+for mass in [15,20,30,40,5055]:
+    for ct in [0,10,20,50,100,1000]:
         if (mass==20 and ct==50) or (mass==20 and ct==1000) or (mass==40 and ct==20) or (mass==55 and ct==0) or (mass==55 and ct==20) or (mass==55 and ct==1000):
             samples_signal_2023[f"ggH4g_M{mass}_ctau{ct}_2023preBPix"] = {
                     'dataset': datasets[(mass,ct,"2023preBPix")],

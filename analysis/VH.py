@@ -416,7 +416,7 @@ def wmugamma(data,sample):
     return actions
 
 
-def wegamma(data,phi_mass,sample):
+def wegamma(data,sample):
     actions=[]
 
     #Declare dataframe and load all meta data 
@@ -438,7 +438,7 @@ def wegamma(data,phi_mass,sample):
     wen = wen.Filter("Sum(Electron_pt[tight_electron]>{})>0".format(ptThresh), "electron_pt_over{}".format(ptThresh))
     wen = makeW(wen, "Electron")
     wen = photonAna(wen, data['era'])
-    weg = wen.Filter('Sum(Photon_preselection==1)>0', "at_least_1_preselection_photons")    
+    weg = wen.Filter('Sum(Photon_preselection==1)>0', "at_least_1_preselection_photons")
     actions.append(weg.Snapshot('wegamma', sample+".root", cols, opts))
     report = ROOT.RDataFrame(1)
     r = weg.Report()

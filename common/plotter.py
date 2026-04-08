@@ -837,7 +837,7 @@ class mplhep_plotter(object):
         for plotter in self.plotters:
             plotter['plotter'].redefine(var, definition)
 
-    def hist1d(self,var,cuts,model,alpha=1.0,xlabel="",xunits="",legend_loc='upper right',show=True,logscale=False):
+    def hist1d(self,var,cuts,model,alpha=1.0,xlabel="",xunits="",legend_loc='upper right',show=True,logscale=False,ax=None):
         background_hists=[]
         background_edges=[]
         background_w2=[]
@@ -901,8 +901,12 @@ class mplhep_plotter(object):
                 signal_edges.append(edges)
                 signal_labels.append(p['label'])
                 signal_colors.append(p['color'])                                    
-
-        fig,ax = plt.subplots()
+        quiet=True
+        if ax==None:        
+            quiet=False
+            
+        if quiet==False:        
+            fig,ax = plt.subplots()
         if len(background_hists)>0:
             #plot background stack            
             mh.histplot(background_hists,background_edges[0],
@@ -959,36 +963,37 @@ class mplhep_plotter(object):
                         density=(True if self.stack==False else False)                        
                         )
 
-
-        ax.legend(loc=legend_loc)
-        if self.data==True:
-            mh.cms.label(self.label, data=self.data, lumi=self.lumi, com=self.com,ax=ax, loc=0)
-        else:
-            mh.cms.label(self.label, data=self.data, lumi=None, com=None,rlabel=f'{self.com} TeV',ax=ax, loc=0)
-        lo, hi = ax.get_ylim()
-        ax.set_ylim(lo, hi + (hi - lo) * 0.25)
+        #add labels and legends only if you made an axis or else do it later
+        if quiet==False:
+            ax.legend(loc=legend_loc)
+            if self.data==True:
+                mh.cms.label(self.label, data=self.data, lumi=self.lumi, com=self.com,ax=ax, loc=0)
+            else:
+                mh.cms.label(self.label, data=self.data, lumi=None, com=None,rlabel=f'{self.com} TeV',ax=ax, loc=0)
+            lo, hi = ax.get_ylim()
+            ax.set_ylim(lo, hi + (hi - lo) * 0.25)
 
             
-        #fix the lower limit
-        lims=plt.ylim()
-        plt.ylim(0.0, lims[1])
-        if xlabel!="":
-            if xunits!='':
-                ax.set_xlabel(f"{xlabel} ({xunits})")
+            #fix the lower limit
+            lims=plt.ylim()
+            plt.ylim(0.0, lims[1])
+            if xlabel!="":
+                if xunits!='':
+                    ax.set_xlabel(f"{xlabel} ({xunits})")
+                else:
+                    ax.set_xlabel(f"{xlabel}")                
+            if self.stack:
+                ax.set_ylabel("Events")
             else:
-                ax.set_xlabel(f"{xlabel}")                
-        if self.stack:
-            ax.set_ylabel("Events")
-        else:
-           ax.set_ylabel("a.u")
+                ax.set_ylabel("a.u")
 
-        if logscale:            
-            if self.stack==False:
-                ax.set_ylim(0.0001,100)
-            ax.set_yscale('log')
-        plt.margins(x=0)            
-        if show:
-            plt.show()
+            if logscale:            
+                if self.stack==False:
+                    ax.set_ylim(0.0001,100)
+                ax.set_yscale('log')
+            plt.margins(x=0)            
+            if show:
+                plt.show()
             
 
     def unrolled2d(self,var1,var2,cuts,model,alpha=1.0,xlabel="",xunits="",legend_loc='upper right',show=True):

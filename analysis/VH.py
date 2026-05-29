@@ -433,15 +433,12 @@ def wegamma(data,sample):
 
     wen = muonAna(wen, data['era'])
     wen = electronAna(wen, data['era'])
-
     wen = wen.Filter("Electron_ntight==1", "exactly_1_tight_electron")
     ptThresh = 35
     wen = wen.Filter("Sum(Electron_pt[tight_electron]>{})>0".format(ptThresh), "electron_pt_over{}".format(ptThresh))
     wen = makeW(wen, "Electron")
     wen = photonAna(wen, data['era'])
-
     weg = wen.Filter('Sum(Photon_preselection==1)>0', "at_least_1_preselection_photons")
-    
     actions.append(weg.Snapshot('wegamma', sample+".root", cols, opts))
     report = ROOT.RDataFrame(1)
     r = weg.Report()

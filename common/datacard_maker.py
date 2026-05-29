@@ -15,7 +15,7 @@ class cnc_datacard_maker(object):
         plotter.define("dummyDCVar",'1.0')
         edges,data,w2=plotter.array1d('dummyDCVar',self.cuts,(name,name,2,0,2),error_mode=error_mode)
         rate=float(np.sum(data))
-        if typeP!='data' and rate==0.0:
+        if typeP=='signal' and rate==0.0:
             print (f"No yield for {name} in this card, skipping this contribution")
             return
         if typeP=='data':
@@ -25,11 +25,14 @@ class cnc_datacard_maker(object):
             self.rates[name]=rate
         elif typeP=='background':
             self.types[name]='background'
-            self.rates[name]=rate            
+            self.rates[name]=rate
         error=np.sqrt(w2)
         for unc_name,unc in uncertainties.items():
+            nData=None                
             block=False
             if unc['type'] =='statSym':
+                if rate==0.0:
+                    continue
                 lower=np.sum(error[0,:])
                 upper=np.sum(error[1,:])
                 err=0.5*(lower+upper)
@@ -39,6 +42,9 @@ class cnc_datacard_maker(object):
                 nData = ('lnN',str(1+err))
                 
             elif unc['type'] =='statAsym':
+                if rate==0.0:
+                    continue
+
                 lower=np.sum(error[0,:])
                 upper=np.sum(error[1,:])
                 if upper==rate and lower==rate:
@@ -51,6 +57,8 @@ class cnc_datacard_maker(object):
                         block=True
                     nData = ('lnN',str(1-errDown)+'/'+str(1+errUp))
             elif unc['type'] =='weightSym':
+                if rate==0.0:
+                    continue                
                 weight=unc['weight']
                 weightOrig = unc['weightOrig']
                 edges2,data2,w22=plotter.array1d('dummyDCVar',f"({self.cuts})*({weight}/({weightOrig}))",(name,name,2,0,2),error_mode='w2')
@@ -59,6 +67,8 @@ class cnc_datacard_maker(object):
                     block=True
                 nData = ('lnN',str(err))
             elif unc['type'] =='replication':
+                if rate==0.0:
+                    continue                
                 cutsUp=self.cuts
                 cutsDown=self.cuts
                 for o,u,d in zip(unc['originals'],unc['replacementsUp'],unc['replacementsDown']):
@@ -73,6 +83,9 @@ class cnc_datacard_maker(object):
                     block=True
                 nData = ('lnN',str(errorDown)+'/'+str(errorUp))
             elif unc['type'] =='weightAsymm':
+                if rate==0.0:
+                    continue
+                
                 weightUp=unc['weightUp']
                 weightDown=unc['weightDown']
                 #we also need to cancel out the original weight:
@@ -87,7 +100,11 @@ class cnc_datacard_maker(object):
                 nData = ('lnN',str(errorDown)+'/'+str(errorUp))
             elif unc['type'] =='adhoc':
                 nData = (unc['kind'],unc['value'])
+            elif unc['type'] =='zeroRate' and rate==0.0:
+                nData = ('gmN 0',unc['value'])    
             if block:
+                continue
+            if nData==None:
                 continue
             if unc_name in self.nuisances.keys():
                 self.nuisances[unc_name]['contribs'][name] = nData[1]

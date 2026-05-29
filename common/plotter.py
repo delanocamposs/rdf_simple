@@ -12,7 +12,7 @@ sty = tdrstyle.setTDRStyle()
 from scipy.stats import chi2,poisson
 import matplotlib.pyplot as plt
 import mplhep as mh
-
+from matplotlib.ticker import ScalarFormatter
 drawprelim = True
 
 @contextmanager
@@ -837,7 +837,7 @@ class mplhep_plotter(object):
         for plotter in self.plotters:
             plotter['plotter'].redefine(var, definition)
 
-    def hist1d(self,var,cuts,model,alpha=1.0,xlabel="",xunits="",legend_loc='upper right',show=True,logscale=False):
+    def hist1d(self,var,cuts,model,alpha=1.0,xlabel="",xunits="",legend_loc='upper right',show=True,logscale=False,ax=None):
         background_hists=[]
         background_edges=[]
         background_w2=[]
@@ -892,7 +892,7 @@ class mplhep_plotter(object):
                     w2=w2/np.sum(data)
                     data=data/np.sum(data)
                 
-                if self.stack==True:
+                if self.stack==True and bkgExists:
                     signal_hists.append(data+background_sum)
                     signal_w2.append(w2+background_sumw2)
                 else:
@@ -901,18 +901,12 @@ class mplhep_plotter(object):
                 signal_edges.append(edges)
                 signal_labels.append(p['label'])
                 signal_colors.append(p['color'])                                    
-
-        fig,ax = plt.subplots()
-        if len(signal_hists)>0:
-            mh.histplot(signal_hists,signal_edges[0],
-                        histtype='step',
-                        stack=False,
-                        label=signal_labels,
-                        color=signal_colors,
-                        yerr=None,
-                        ax=ax,
-                        density=(True if self.stack==False else False)                        
-                        )                   
+        quiet=True
+        if ax==None:        
+            quiet=False
+            
+        if quiet==False:        
+            fig,ax = plt.subplots()
         if len(background_hists)>0:
             #plot background stack            
             mh.histplot(background_hists,background_edges[0],
@@ -923,6 +917,7 @@ class mplhep_plotter(object):
                         alpha=(alpha if self.stack==False else 1.0), 
                         density=(True if self.stack==False else False)
                         )
+           
             #plot background error band in a custom way (since we use old version of mplhep)
             if self.stack:
                 mh.histplot(background_hists,background_edges[0],
@@ -936,6 +931,26 @@ class mplhep_plotter(object):
                                 np.append(background_sum-np.sqrt(background_sumw2[0]),0),
                                 np.append(background_sum+np.sqrt(background_sumw2[1]),0),
                                 step='post', color='lightgray', alpha=0.5, hatch='////')            
+        if len(signal_hists)>0:
+            mh.histplot(signal_hists,signal_edges[0],
+                        histtype='step',
+                        stack=False,
+                        label=signal_labels,
+                        color=signal_colors,
+                        yerr=None,
+                        ax=ax,
+                        density=(True if self.stack==False else False)                        
+                        )                   
+            #Now redraw the background outlines if we are doing stack
+            if len(background_hists)>0 and self.stack:
+                mh.histplot(background_hists,background_edges[0],
+                            histtype='step',
+                            color=['black']*len(background_hists),
+                            stack=True,
+                            label=None,
+                            ax=ax
+                            )
+
         if len(data_hists)>0:           
             mh.histplot(data_hists,data_edges[0],
                         histtype='errorbar',
@@ -948,32 +963,37 @@ class mplhep_plotter(object):
                         density=(True if self.stack==False else False)                        
                         )
 
-        #then stack backgrounds and then draw band
-        ax.legend(loc=legend_loc)
-        if self.data==True:
-            mh.cms.label(self.label, data=self.data, lumi=self.lumi, com=self.com,ax=ax, loc=0)
-        else:
-            mh.cms.label(self.label, data=self.data, lumi=None, com=None,rlabel=f'{self.com} TeV',ax=ax, loc=0)
-            
-        #fix the lower limit
-        lims=plt.ylim()
-        plt.ylim(0.0, lims[1])
-        if xlabel!="":
-            if xunits!='':
-                ax.set_xlabel(f"{xlabel} ({xunits})")
+        #add labels and legends only if you made an axis or else do it later
+        if quiet==False:
+            ax.legend(loc=legend_loc)
+            if self.data==True:
+                mh.cms.label(self.label, data=self.data, lumi=self.lumi, com=self.com,ax=ax, loc=0)
             else:
-                ax.set_xlabel(f"{xlabel}")                
-        if self.stack:
-            ax.set_ylabel("Events")
-        else:
-           ax.set_ylabel("a.u")
+                mh.cms.label(self.label, data=self.data, lumi=None, com=None,rlabel=f'{self.com} TeV',ax=ax, loc=0)
+            lo, hi = ax.get_ylim()
+            ax.set_ylim(lo, hi + (hi - lo) * 0.25)
 
-        if logscale:            
-            if self.stack==False:
-                ax.set_ylim(0.0001,100)
-            ax.set_yscale('log')    
-        if show:
-            plt.show()
+            
+            #fix the lower limit
+            lims=plt.ylim()
+            plt.ylim(0.0, lims[1])
+            if xlabel!="":
+                if xunits!='':
+                    ax.set_xlabel(f"{xlabel} ({xunits})")
+                else:
+                    ax.set_xlabel(f"{xlabel}")                
+            if self.stack:
+                ax.set_ylabel("Events")
+            else:
+                ax.set_ylabel("a.u")
+
+            if logscale:            
+                if self.stack==False:
+                    ax.set_ylim(0.0001,100)
+                ax.set_yscale('log')
+            plt.margins(x=0)            
+            if show:
+                plt.show()
             
 
     def unrolled2d(self,var1,var2,cuts,model,alpha=1.0,xlabel="",xunits="",legend_loc='upper right',show=True):
@@ -1120,7 +1140,7 @@ class mplhep_plotter(object):
         if show:
             plt.show()
         
-    def unrolledCustom(self,var1,var2,cuts,custom_binning,alpha=1.0,xlabel="",xunits="",ylabel="",yunits="",legend_loc='upper right',legend_ax=-1,show=True,textx=0.5,texty=0.5):
+    def unrolledCustom(self,var1,var2,cuts,custom_binning,alpha=1.0,xlabel="",xunits="",ylabel="",yunits="",legend_loc='upper right',legend_bbox=None,legend_ax=-1,show=True,textx=0.5,texty=0.5):
 
         fig,ax = plt.subplots(1,len(custom_binning),sharey=True,figsize=(25,10))
         plt.subplots_adjust(wspace=0)        
@@ -1222,7 +1242,7 @@ class mplhep_plotter(object):
                     ax[i].fill_between(yedges,
                                        np.append(background_sum-np.sqrt(background_sumw2[0]),0),
                                        np.append(background_sum+np.sqrt(background_sumw2[1]),0),
-                                       step='post', color='lightgray', alpha=0.5, hatch='////')            
+                                       step='post', color='lightgrey', alpha=0.5, hatch='////')            
                     
                 else:
                     mh.histplot(background_hists,yedges,
@@ -1272,7 +1292,19 @@ class mplhep_plotter(object):
                        fontsize=20, ha='center', va='center', 
                        bbox=dict(facecolor='white',edgecolor='none', alpha=0.5))
             #then stack backgrounds and then draw band
-        ax[legend_ax].legend(loc=legend_loc)
+            ax[i].margins(x=0)
+
+
+        lo, hi = ax[0].get_ylim()
+
+        # Add a 20% margin only to the right side
+        ax[0].set_ylim(lo, hi + (hi - lo) * 0.25)
+
+            
+        if legend_bbox==None:
+            ax[legend_ax].legend(loc=legend_loc)
+        else:   
+            ax[legend_ax].legend(loc=legend_loc, bbox_to_anchor=legend_bbox)
 
         #Labels
         mh.cms.label(self.label,data=self.data,rlabel="", ax=ax[0], loc=0)
@@ -1294,6 +1326,7 @@ class mplhep_plotter(object):
             print(label,y)
 
 
+        plt.margins(x=0)            
            
         if show:
             plt.show()
@@ -1302,13 +1335,15 @@ class mplhep_plotter(object):
 
 #class for limits
 class limit_plotter(object):
-    def __init__(self,filename,label=None,lumi=137.62,data=True,com=13):
+    def __init__(self,filename,label=None,lumi=137.62,data=True,com=13,text=None,scale=1):
         mh.style.use('CMS')
         self.label=label
         self.lumi=lumi
         self.com=com
         self.data=data
         self.rdf = ROOT.RDataFrame('limit',filename)
+        self.text=text
+        self.scale=scale
 
     def brazilian_flag(self,band2sigma_color='lime',band1sigma_color='yellow',ax=None,show=False,quiet=False,legend_loc='upper right',xlabel='',xunits='',ylabel='95% CL Upper Limits'):
         expected025=self.rdf.Filter('TMath::Abs(quantileExpected-0.025)<0.001').AsNumpy(['mh','limit'])
@@ -1323,18 +1358,20 @@ class limit_plotter(object):
         
             
         ax.fill_between(expected025['mh'],
-                        expected025['limit'],
-                        expected975['limit'],
-                        color=band2sigma_color, alpha=1,label=r'$\pm$ 2 std. deviations')            
+                        expected025['limit']*self.scale,
+                        expected975['limit']*self.scale,
+                        color=band2sigma_color, alpha=1,label=r'$\pm 1 \sigma$')            
         ax.fill_between(expected16['mh'],
-                        expected16['limit'],
-                        expected84['limit'],
-                        color=band1sigma_color, alpha=1,label=r'$\pm$ 1 std. deviation')            
+                        expected16['limit']*self.scale,
+                        expected84['limit']*self.scale,
+                        color=band1sigma_color, alpha=1,label=r'$\pm 2 \sigma$')           
         
-        ax.plot(expected['mh'],expected['limit'],linestyle='--',color='k',label=r'Asymptotic $CL_s$ expected')
-        ax.plot(observed['mh'],observed['limit'],color='k',label='Observed')
+        ax.plot(expected['mh'],expected['limit']*self.scale,linestyle='--',color='k',label=r'Expected',lw=4)
+        ax.plot(observed['mh'],observed['limit']*self.scale,color='k',label='Observed',lw=4)
         ax.margins(x=0)
-                     
+        ax.minorticks_on()
+        ax.grid(which='major', linestyle='-', linewidth='0.5', color='gray')
+        ax.grid(which='minor', linestyle=':', linewidth='0.5', color='lightgray')                     
         if quiet==False:
             ax.legend(loc=legend_loc)
             if xlabel!="":
@@ -1345,6 +1382,7 @@ class limit_plotter(object):
                 mh.cms.label(self.label, data=self.data, lumi=self.lumi, com=self.com,ax=ax, loc=0)
             else:
                 mh.cms.label(self.label, data=self.data, lumi=None, com=None,rlabel=f'{self.com} TeV',ax=ax, loc=0)
+        self.ax=ax        
         if show:
             plt.show()
         
@@ -1356,8 +1394,8 @@ class limit_plotter(object):
             fig,ax = plt.subplots()
         
             
-        ax.plot(expected['mh'],expected['limit'],linestyle='--',color=col,label=r'Asymptotic $CL_s$ expected')
-        ax.plot(observed['mh'],observed['limit'],color=col,label='Observed')
+        ax.plot(expected['mh'],expected['limit']*self.scale,linestyle='--',color=col,label=r'Asymptotic $CL_s$ expected')
+        ax.plot(observed['mh'],observed['limit']*self.scale,color=col,label='Observed')
         ax.margins(x=0)
                      
         if quiet==False:
@@ -1384,7 +1422,7 @@ class multilimit_plotter(object):
 
         self.plotters=plotters
 
-    def brazilian_flag(self,band2sigma_color='lime',band1sigma_color='yellow',show=False,legend_loc='upper right',xlabel='',xunits='',ylabel='95% CL Upper Limits',log=True):
+    def brazilian_flag(self,band2sigma_color='lime',band1sigma_color='yellow',show=False,legend_loc='upper right',xlabel='',xunits='',ylabel='95% CL Upper Limits',log=True,textx=0.5,texty=0.02,fontsize=40):
         
         fig,ax = plt.subplots(1,len(self.plotters),sharey=True,figsize=(7.5*len(self.plotters),20))
         plt.subplots_adjust(wspace=0)
@@ -1393,20 +1431,26 @@ class multilimit_plotter(object):
             ydim = int(i/3)
 
             plotter['plotter'].brazilian_flag(band2sigma_color=band2sigma_color,band1sigma_color=band1sigma_color,ax=ax[i],show=False,quiet=True)
-            
-            
-        ax[-1].legend(loc=legend_loc)
+            ax[i].text(textx, texty,plotter['plotter'].text, transform=ax[i].transAxes,
+                       fontsize=fontsize, ha='center', va='center', 
+                       bbox=dict(facecolor='white',edgecolor='none', alpha=0.5))
+            ax[i].tick_params(axis='both', which='major', labelsize=fontsize)
+        ax[0].legend(loc=legend_loc,fontsize=fontsize)
+
         if xlabel!="":
-            ax[-1].set_xlabel(f"{xlabel} ({xunits})")
+            ax[-1].set_xlabel(f"{xlabel} ({xunits})",fontsize=40)
+            
         if ylabel!="":
-            ax[0].set_ylabel(ylabel)
-        mh.cms.label(self.label,data=self.data,rlabel="", ax=ax[0], loc=0)
+            ax[0].set_ylabel(ylabel,fontsize=fontsize)
+        mh.cms.label(self.label,data=self.data,rlabel="", ax=ax[0], loc=0,fontsize=60)
         if self.data==False:
-            mh.cms.label(None,exp='',data=self.data,llabel="", ax=ax[-1], loc=0,lumi=None,com=None,rlabel=f'{self.com} TeV')
+            mh.cms.label(None,exp='',data=self.data,llabel="", ax=ax[-1], loc=0,lumi=None,com=None,rlabel=f'{self.com} TeV',fontsize=fontsize)
         else:
-            mh.cms.label(None,exp='',data=self.data,llabel="", ax=ax[-1], loc=0,lumi=self.lumi,com=self.com)
+            mh.cms.label(None,exp='',data=self.data,llabel="", ax=ax[-1], loc=0,lumi=self.lumi,com=self.com,fontsize=fontsize)
         if log:
             ax[0].set_yscale('log')
+#           ax[0].yaxis.set_major_formatter(ScalarFormatter())
+        self.ax=ax
         if show:
             plt.show()
         

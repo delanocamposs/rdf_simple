@@ -327,6 +327,18 @@ RVec<bool> fsr_recovery(const RVec<size_t>& idx,RVecF mpt, RVecF meta, RVecF mph
 }
 
 
+
+RVecF invMassEG(float pt,float eta,float phi, float m,const RVecF& gpt, const RVecF& geta,const RVecF& gphi,const RVecF& gm) {
+  RVecF out;
+  ROOT::Math::PtEtaPhiMVector p1(pt,eta,phi,m);
+  
+  for (unsigned int i=0;i<gpt.size();++i) {
+    ROOT::Math::PtEtaPhiMVector p2(gpt[i],geta[i],gphi[i],gm[i]);
+    out.emplace_back((p1+p2).M());
+  }
+  return out;
+}
+
 float invMass3(float pt1,float eta1,float phi1, float m1,float pt2,float eta2,float phi2, float m2,float pt3,float eta3,float phi3, float m3) {
   ROOT::Math::PtEtaPhiMVector p1(pt1,eta1,phi1,m1);
   ROOT::Math::PtEtaPhiMVector p2(pt2,eta2,phi2,m2);
@@ -425,6 +437,29 @@ RVecF deltaR_lgamma(const float leta, const float lphi,const RVecF& geta, const 
 
     return result; // Empty if no photons exist
 }
+
+
+RVecF closest_dr(const RVecF& geta, const RVecF& gphi,const RVecI& id ) {
+    RVecF result;
+    int closest_idx = -1;
+
+    for (int i = 0; i < static_cast<int>(geta.size())-1; i++) {
+      float min_dR = 1000.0;            
+      if (id[i]==0)
+	continue;
+      for (int j = i+1; j < static_cast<int>(geta.size()); j++) {
+	if (id[j]==0)
+	  continue;	
+        float dR = DeltaR(geta[i], geta[j], gphi[i], gphi[j]);
+        if (dR < min_dR) {
+            min_dR = dR;
+        }
+      }
+      result.emplace_back(min_dR);
+    }
+    return result; // Empty if no photons exist
+}
+
 
 //return PUID of the associated jet to each photon
 RVecF photon_closest_jet_puID(const RVecI& idx , const RVecF& jet_pt,const RVecF& jetPUID) {

@@ -144,6 +144,7 @@ binning={'wen2g': {7: [((4.0, 6.0), [-10.0, 40.0, 70.0, 110.0]), ((6.0, 8.0), [-
 
 
 binning1d={'wen2g':np.array([-10.,10.,30.,50.,75.,110.]),'wmn2g':np.array([-10.,10.,30.,50.,75.,110.]),'zmm2g':np.array([-10.,30.,75.,110.]),'zee2g':np.array([-10.,30.,75.,110.])}
+binning1d_sb={'wen2g':np.array([-160.,-130.,-110.,-90.,-70.,-50.,-30.,-10.]),'wmn2g':np.array([-160.,-130.,-110.,-90.,-70.,-50.,-30.,-10.]),'zmm2g':np.array([-160.,-110.,-60.,-10.]),'zee2g':np.array([-160.,-110.,-60.,-10.])}
 
 
 # Scale factor stuff 
@@ -742,19 +743,20 @@ def runAction(sampleDir,prod,action='fakerate_closure',masses=masses,outputDir='
             for m in masses:
                 stack=mplhep_plotter(label=analysis_status,data=True,lumi=lumifb[era],com=center_of_mass[era])
                 stack.add_plotter(analysis['bkg'][m],label="Background",typeP='background',error_mode='w2')
-                stack.add_plotter(analysis['data'],label="Data",typeP='data',error_mode='poisson')               
+                stack.add_plotter(analysis['data'],label="Data",typeP='data',error_mode='poisson')
+
 
                 if ana in ['wmn2g','wen2g']:
                     stack.hist1d('W_mt',cuts[ana][m]['presr']+f"*(best_2g_raw_mass_m{m}>65)",("a","a",20,0,150),xlabel=r"$M_T$",xunits="GeV",show=False)
                     plt.savefig(f'{outputDir}/data_vs_bkg_MT_{ana}_{m}_{era}.{file_extension}', dpi=400, bbox_inches='tight')
-                    stack.hist1d(f'best_2g_dxy_m{m}',cuts[ana][m]['presr'],("a","a",25,-160,-10),xlabel=r"$L_{xy}$",xunits="cm",show=False)
-                    plt.savefig(f'{outputDir}/data_vs_bkg_lxy_{ana}_{m}_{era}.{file_extension}', dpi=400, bbox_inches='tight')
+#                    stack.hist1d(f'best_2g_dxy_m{m}',cuts[ana][m]['presr'],("a","a",25,-160,-10),xlabel=r"$L_{xy}$",xunits="cm",show=False)
+#                    plt.savefig(f'{outputDir}/data_vs_bkg_lxy_{ana}_{m}_{era}.{file_extension}', dpi=400, bbox_inches='tight')
                     
                 else:    
                     stack.hist1d('Z_mass',cuts[ana][20]['presr']+f"*(best_2g_raw_mass_m{m}>65)",("a","a",20,0,120),xlabel=r"$m_{\ell\ell}$",xunits="GeV",show=False)
                     plt.savefig(f'{outputDir}/data_vs_bkg_MLL_{ana}_{m}_{era}.{file_extension}', dpi=400, bbox_inches='tight')
-                    stack.hist1d(f'best_2g_dxy_m{m}',cuts[ana][m]['presr'],("a","a",5,-160,-10),xlabel=r"$L_{xy}$",xunits="cm",show=False)
-                    plt.savefig(f'{outputDir}/data_vs_bkg_lxy_{ana}_{m}_{era}.{file_extension}', dpi=400, bbox_inches='tight')
+#                    stack.hist1d(f'best_2g_dxy_m{m}',cuts[ana][m]['presr'],("a","a",5,-160,-10),xlabel=r"$L_{xy}$",xunits="cm",show=False)
+#                    plt.savefig(f'{outputDir}/data_vs_bkg_lxy_{ana}_{m}_{era}.{file_extension}', dpi=400, bbox_inches='tight')
             
                 
                 print(f"Running {ana} m={m} GeV")
@@ -921,6 +923,57 @@ def runAction(sampleDir,prod,action='fakerate_closure',masses=masses,outputDir='
                 stack=None
             analysis=None
 
+    elif action=="background_plots_negativelxy":
+        print("Make 1D final Plots")
+        myTexts = {
+            'wmn2g':r'$W\rightarrow \mu \nu$',
+            'wen2g':r'$W\rightarrow e \nu$',
+            'zmm2g':r'$Z\rightarrow \mu \mu$',
+            'zee2g':r'$Z\rightarrow e e$',
+
+            }
+        for m in masses:    
+            #create the common axes
+            mh.style.use('CMS')
+            fig,ax = plt.subplots(1,len(analyses),sharey=True,figsize=(25,10))
+            plt.subplots_adjust(wspace=0)        
+        
+            for i,ana in enumerate(analyses):
+                #create a plotter that has all MC as data
+                analysis=getAnalysis(sampleDir,prod,ana,background_method='fakerate',era=era,br=signal_br,signals=[],lifetimes=[])
+                print(f"Running {i} {ana} m={m} GeV")
+                stack=mplhep_plotter(label=analysis_status,data=True,lumi=lumifb[era],com=center_of_mass[era])
+                stack.add_plotter(analysis['bkg'][m],label='Background',typeP='background',error_mode='poisson_bootstrap')
+                stack.add_plotter(analysis['data'],label="Data",typeP='data',error_mode='poisson')               
+                #draw a plot
+                stack.hist1d(f"best_2g_dxy_m{m}",cuts[ana][m]['presr']+f"*(best_2g_raw_mass_m{m}>65)",('a','a',len(binning1d_sb[ana])-1,binning1d_sb[ana]),alpha=1.0,xlabel=r"$L_{xy}$",xunits="cm",legend_loc='upper right',show=False,ax=ax[i])
+                analysis=None
+                ax[i].text(0.5, 0.95, myTexts[ana] , transform=ax[i].transAxes,
+                           fontsize=20, ha='center', va='center', 
+                           bbox=dict(facecolor='white',edgecolor='none', alpha=0.5))
+                ax[i].margins(x=0)
+                if i==(len(analyses)-1):
+                    ax[i].legend(loc='upper left', bbox_to_anchor=(0.01,0.9))
+                ax[i].tick_params(axis='both', which='major', labelsize=18)
+            #then stack backgrounds and then draw band
+            lo, hi = ax[0].get_ylim()
+            # Add a 20% margin only to the right side
+            ax[0].set_ylim(lo, hi + (hi - lo) * 0.25)
+            ax[-1].text(0.1, 0.65, r"$m_\Phi=$"+f"{m} GeV" , transform=ax[-1].transAxes,
+                           fontsize=20, ha='left', va='center', 
+                           bbox=dict(facecolor='white',edgecolor='none', alpha=0.5))
+
+#            ax[-1].text(0.1, 0.5, r"$\mathcal{BR} (H \rightarrow \Phi\Phi)\cdot (\Phi \rightarrow \gamma\gamma)=0.005$" , transform=ax[-1].transAxes,
+#                           fontsize=20, ha='left', va='center', 
+#                           bbox=dict(facecolor='white',edgecolor='none', alpha=0.5))
+
+            
+            #Labels
+            mh.cms.label(analysis_status,data=True,rlabel="", ax=ax[0], loc=0)
+            mh.cms.label(None,exp='',data=True,llabel="", ax=ax[-1], loc=0,lumi=lumifb[era],com=center_of_mass[era])
+            ax[-1].set_xlabel(r"$L_{xy}$ (cm)",fontsize=20)
+            ax[0].set_ylabel("Events",fontsize=20)
+            plt.savefig(f'{outputDir}/sideband_lxy_1D_{m}_{era}.{file_extension}', dpi=400, bbox_inches='tight')
 
         #ACTION: Final Plots 1D             
     elif action=="final_plots_1d":

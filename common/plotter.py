@@ -130,7 +130,7 @@ class plotter_base(object):
         del poisson_counts
         return ci_low, ci_high
     
-    def array1d(self,var,cuts,model,include_overflow=False,error_mode='w2'):
+    def array1d(self,var,cuts,model,include_overflow=False,error_mode='w2',dndx=False):
         hist=self.hist1d(var,cuts,model,titlex = "",units = "")
         axis=hist.GetXaxis()
         num_bins = hist.GetNbinsX()+2
@@ -169,8 +169,14 @@ class plotter_base(object):
                     d=data[i]
 #                    print(f"Poisson Bootstrap: Observation = {d} Interval E [{l},{h}]")
             w2=np.array([np.square(data-low),np.square(high-data)])            
-        del hist    
-        if include_overflow==False:
+        del hist
+        print(f"Overflow events monitor={data[-1]}")
+        if dndx:
+            dx=np.diff(edges)
+            data[1:-1]=data[1:-1]/dx
+            w2[:,1:-1]=w2[:,1:-1]/(dx ** 2)        
+        
+        if include_overflow==False:            
             return edges.copy(),data[1:-1].copy(),w2[:,1:-1].copy()
         else:
             return edges.copy(),data.copy(),w2.copy()
@@ -837,7 +843,7 @@ class mplhep_plotter(object):
         for plotter in self.plotters:
             plotter['plotter'].redefine(var, definition)
 
-    def hist1d(self,var,cuts,model,alpha=1.0,xlabel="",xunits="",legend_loc='upper right',show=True,logscale=False,ax=None):
+    def hist1d(self,var,cuts,model,alpha=1.0,xlabel="",xunits="",legend_loc='upper right',show=True,ax=None,dndx=False):
         background_hists=[]
         background_edges=[]
         background_w2=[]
@@ -857,7 +863,7 @@ class mplhep_plotter(object):
         bkgExists=False        
         for p in self.plotters:
             if p['type']=='data':
-                edges,data,w2=p['plotter'].array1d(var,cuts,model,error_mode=p['error_mode'])
+                edges,data,w2=p['plotter'].array1d(var,cuts,model,error_mode=p['error_mode'],dndx=dndx)
                 if self.stack==False:
                     w2=w2/np.sum(data)
                     data=data/np.sum(data)
@@ -867,7 +873,7 @@ class mplhep_plotter(object):
                 data_labels.append(p['label'])
                 data_colors.append(p['color'])                                    
             elif p['type']=='background':
-                edges,data,w2=p['plotter'].array1d(var,cuts,model,error_mode=p['error_mode'])
+                edges,data,w2=p['plotter'].array1d(var,cuts,model,error_mode=p['error_mode'],dndx=dndx)
                 if self.stack==False:
                     w2=w2/np.sum(data)
                     data=data/np.sum(data)
@@ -887,7 +893,7 @@ class mplhep_plotter(object):
                 background_colors.append(p['color'])                                                    
         for p in self.plotters:                   
             if p['type']=='signal':
-                edges,data,w2=p['plotter'].array1d(var,cuts,model,error_mode=p['error_mode'])
+                edges,data,w2=p['plotter'].array1d(var,cuts,model,error_mode=p['error_mode'],dndx=dndx)
                 if self.stack==False:
                     w2=w2/np.sum(data)
                     data=data/np.sum(data)
@@ -930,7 +936,7 @@ class mplhep_plotter(object):
                 ax.fill_between(background_edges[0],
                                 np.append(background_sum-np.sqrt(background_sumw2[0]),0),
                                 np.append(background_sum+np.sqrt(background_sumw2[1]),0),
-                                step='post', color='lightgray', alpha=0.5, hatch='////')            
+                                step='post', color='lightgray', alpha=0.5, hatch='////',label='bkg. uncertainty')            
         if len(signal_hists)>0:
             mh.histplot(signal_hists,signal_edges[0],
                         histtype='step',
@@ -958,6 +964,7 @@ class mplhep_plotter(object):
                         label=data_labels,
                         color=data_colors,
                         yerr = [np.sqrt(a) for a in data_w2],
+                        xerr = True,
                         capsize=self.capsize,
                         ax=ax,
                         density=(True if self.stack==False else False)                        
@@ -987,15 +994,91 @@ class mplhep_plotter(object):
             else:
                 ax.set_ylabel("a.u")
 
-            if logscale:            
-                if self.stack==False:
-                    ax.set_ylim(0.0001,100)
-                ax.set_yscale('log')
             plt.margins(x=0)            
             if show:
                 plt.show()
             
 
+
+    def pull1d(self,var,cuts,model,alpha=1.0,xlabel="",xunits="",legend_loc='upper right',show=True,ax=None,dndx=False):
+        background_edges=[]
+        data_hists=[]
+        data_edges=[]
+        data_labels=[]
+        data_colors=[]
+        bkgExists=False        
+        for p in self.plotters:
+            if p['type']=='background':
+                edges,data,w2=p['plotter'].array1d(var,cuts,model,error_mode=p['error_mode'],dndx=dndx)
+                if bkgExists==False:
+                    background_sum=data
+                    background_sumw2=w2
+                    background_edges=edges
+                    bkgExists=True
+                else:
+                    background_sum=background_sum+data
+                    background_sumw2=background_sumw2+w2
+
+                    
+        for p in self.plotters:
+            if p['type']=='data':
+                edges,data,w2=p['plotter'].array1d(var,cuts,model,error_mode=p['error_mode'],dndx=dndx)               
+                data = data-background_sum
+                w2 = w2+background_sumw2
+                data = [ data[i]/np.sqrt(w2[0]) if data[i]>0 else data[i]/np.sqrt(w2[1])]
+                data_hists.append(data)
+                data_edges.append(edges)
+                data_labels.append(p['label'])
+                data_colors.append(p['color'])                                    
+        quiet=True
+        if ax==None:        
+            quiet=False
+        if quiet==False:        
+            fig,ax = plt.subplots()
+        ax.fill_between(background_edges[0],
+                        np.append(-3,0),
+                        np.append(3,0),
+                        step='post', color='lightgray', alpha=0.5, hatch='////')            
+        if len(data_hists)>0:           
+            mh.histplot(data_hists,data_edges[0],
+                        histtype='errorbar',
+                        stack=False,
+                        label=data_labels,
+                        color=data_colors,
+                        capsize=self.capsize,
+                        ax=ax,
+                        density=False                        
+                        )
+
+        #add labels and legends only if you made an axis or else do it later
+        if quiet==False:
+            ax.legend(loc=legend_loc)
+            if self.data==True:
+                mh.cms.label(self.label, data=self.data, lumi=self.lumi, com=self.com,ax=ax, loc=0)
+            else:
+                mh.cms.label(self.label, data=self.data, lumi=None, com=None,rlabel=f'{self.com} TeV',ax=ax, loc=0)
+            lo, hi = ax.get_ylim()
+            ax.set_ylim(lo, hi + (hi - lo) * 0.25)
+
+            
+            #fix the lower limit
+            lims=plt.ylim()
+            plt.ylim(0.0, lims[1])
+            if xlabel!="":
+                if xunits!='':
+                    ax.set_xlabel(f"{xlabel} ({xunits})")
+                else:
+                    ax.set_xlabel(f"{xlabel}")                
+            if self.stack:
+                ax.set_ylabel("Events")
+            else:
+                ax.set_ylabel("a.u")
+
+            plt.margins(x=0)            
+            if show:
+                plt.show()
+
+                
     def unrolled2d(self,var1,var2,cuts,model,alpha=1.0,xlabel="",xunits="",legend_loc='upper right',show=True):
         background_hists=[]
         background_edges=[]

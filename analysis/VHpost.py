@@ -1001,14 +1001,14 @@ def runAction(sampleDir,prod,action='fakerate_closure',masses=masses,outputDir='
                 #create a plotter that has all MC as data
                 analysis=getAnalysis(sampleDir,prod,ana,background_method='fakerate',era=era,br=signal_br,signals=mySignals[ana],lifetimes=lifetimes)
                 print(f"Running {i} {ana} m={m} GeV")
-                stack=mplhep_plotter(label=analysis_status,data=True,lumi=lumifb[era],com=center_of_mass[era])
+                stack=mplhep_plotter(label=analysis_status,data=True,lumi=lumifb[era],com=center_of_mass[era],capsize=0)
                 stack.add_plotter(analysis['bkg'][m],label='Background',typeP='background',error_mode='poisson_bootstrap')
                 for ctau in lifetimes:
                     stack.add_plotter(analysis['signal'][m][ctau]['sum'],label=r" $H \rightarrow\Phi\Phi,  c\tau =$ "+f"{ctau} mm",typeP='signal',error_mode='w2',color=signal_colors[ctau])
                 if blinded==False:
                     stack.add_plotter(analysis['data'],label="Data",typeP='data',error_mode='poisson')               
                 #draw a plot
-                stack.hist1d(f"best_2g_dxy_m{m}",cuts[ana][m]['sr'],('a','a',len(binning1d[ana])-1,binning1d[ana]),alpha=1.0,xlabel=r"$L_{xy}$",xunits="cm",legend_loc='upper right',show=False,ax=ax[i])
+                stack.hist1d(f"best_2g_dxy_m{m}",cuts[ana][m]['sr'],('a','a',len(binning1d[ana])-1,binning1d[ana]),alpha=1.0,xlabel=r"$L_{xy}$",xunits="cm",legend_loc='upper right',show=False,ax=ax[i],dndx=True)
                 analysis=None
                 ax[i].text(0.5, 0.95, myTexts[ana] , transform=ax[i].transAxes,
                            fontsize=20, ha='center', va='center', 
@@ -1019,8 +1019,11 @@ def runAction(sampleDir,prod,action='fakerate_closure',masses=masses,outputDir='
                 ax[i].tick_params(axis='both', which='major', labelsize=18)
             #then stack backgrounds and then draw band
             lo, hi = ax[0].get_ylim()
-            # Add a 20% margin only to the right side
             ax[0].set_ylim(lo, hi + (hi - lo) * 0.25)
+#            ax[0].set_ylim(0.001, hi + (hi - lo) * 100)
+#            ax[0].set_yscale('log')
+
+
             ax[-1].text(0.1, 0.55, r"$m_\Phi=$"+f"{m} GeV" , transform=ax[-1].transAxes,
                            fontsize=20, ha='left', va='center', 
                            bbox=dict(facecolor='white',edgecolor='none', alpha=0.5))
@@ -1034,7 +1037,8 @@ def runAction(sampleDir,prod,action='fakerate_closure',masses=masses,outputDir='
             mh.cms.label(analysis_status,data=True,rlabel="", ax=ax[0], loc=0)
             mh.cms.label(None,exp='',data=True,llabel="", ax=ax[-1], loc=0,lumi=lumifb[era],com=center_of_mass[era])
             ax[-1].set_xlabel(r"$L_{xy}$ (cm)",fontsize=20)
-            ax[0].set_ylabel("Events",fontsize=20)
+            ax[0].set_ylabel("< Events / cm >",fontsize=20)
+            
             if blinded:
                 plt.savefig(f'{outputDir}/blinded_prefit_1D_{m}_{era}.{file_extension}', dpi=400, bbox_inches='tight')
             else:

@@ -4,6 +4,7 @@ class cnc_datacard_maker(object):
     def __init__(self,outDir,binname,cuts):
         self.rates={}
         self.nuisances={}
+        self.parameters=[]
         self.types={}
         self.data=-1        
         self.binname=binname
@@ -36,7 +37,7 @@ class cnc_datacard_maker(object):
                 lower=np.sum(error[0,:])
                 upper=np.sum(error[1,:])
                 err=0.5*(lower+upper)
-                err=float(np.divide(err,data))
+                err=float(np.divide(err,rate))
                 if err==0.0:
                     block=True
                 nData = ('lnN',str(1+err))
@@ -44,7 +45,6 @@ class cnc_datacard_maker(object):
             elif unc['type'] =='statAsym':
                 if rate==0.0:
                     continue
-
                 lower=np.sum(error[0,:])
                 upper=np.sum(error[1,:])
                 if upper==rate and lower==rate:
@@ -159,7 +159,11 @@ class cnc_datacard_maker(object):
                     file.write(f"{v}\t")
                 file.write('\n')
                             
-                            
+            for p in self.parameters:
+                file.write(p)
+                file.write('\n')
+                
+                
                 
             
                 

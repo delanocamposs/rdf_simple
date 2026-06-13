@@ -905,6 +905,26 @@ RVecI isGenSignal(RVecI pdgId, RVecI motherIdx){
   return out;
 }
 
+
+int nSpecificGenParticles(RVecI pdgId, RVecI motherIdx,RVecI status,int partPdg,int motherPdg,int partStatus ){
+  int count=0;
+  for (size_t i = 0; i < pdgId.size(); i++){
+    
+    if ((status[i]!=partStatus) && (partStatus!=-1))
+      continue;
+    if (abs(pdgId[i])!=abs(partPdg))
+      continue;
+    if (motherIdx[i]==-1)
+      continue;
+
+    if (abs(pdgId[motherIdx[i]]) == abs(motherPdg))
+      count++;
+  }
+  return count;
+}
+
+
+
 RVecF photonEnergyScale(RVecF eta, RVecU seedgain, std::vector<std::pair<unsigned int, std::vector<float>>> values, std::vector<std::pair<unsigned int, std::vector<float>>> binning, const bool isMC){
   RVecF out;
   out.reserve(eta.size());

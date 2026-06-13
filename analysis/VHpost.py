@@ -1,5 +1,6 @@
+import os
 import ROOT
-import glob
+from pathlib import Path
 import array
 import pandas as pd
 import subprocess
@@ -252,8 +253,24 @@ def getFiles(query,sampleDir,sampleType,era,prod):
         ser = pd.Series(subprocess.check_output(['xrdfs', 'root://cmseos.fnal.gov', 'ls', f"{sampleDir}/{sampleType}{era}_{prod}/"], text=True).split("\n"))
         return(list('root://cmseos.fnal.gov/' + ser[ser.str.contains(query)]))
     else:
-        ser = pd.Series(subprocess.check_output(['ls', f"{sampleDir}/{sampleType}{era}_{prod}/"], text=True).split("\n"))
-        return(list(f"{sampleDir}/{sampleType}{era}_{prod}/" +ser[ser.str.contains(query)]))
+        # Your original variables setup
+        target_dir = f"{sampleDir}/{sampleType}{era}_{prod}/"
+        match_str = f"{query}"
+
+        files = []
+
+        # If the directory doesn't exist, avoid scanning entirely
+        if os.path.exists(target_dir):
+            # 'with os.scandir' forces the OS to immediately release 
+            # the directory descriptor the moment this block finishes!
+            with os.scandir(target_dir) as entries:
+                for entry in entries:
+                    # Check if it's a file, ends with .root, and contains your query
+                    if entry.is_file() and entry.name.endswith(".root") and match_str in entry.name:
+                        files.append(entry.path) # entry.path is already a plain string!
+                        
+        return files
+
 
 def getPlotter(sample,sampleDir,sampleType,eras,prod,analysis):
     plotters=[]
@@ -268,6 +285,8 @@ def getPlotter(sample,sampleDir,sampleType,eras,prod,analysis):
                     files = getFiles('SingleElectron',sampleDir,sampleType,era,prod)
             else:
                 files = getFiles('SingleMuon',sampleDir,sampleType,era,prod)
+
+                
         else: #MC means query
             files = getFiles(sample,sampleDir,sampleType,era,prod)
         for f in files:
@@ -399,7 +418,7 @@ def calculate_fake_rate(sampleDir,prod,eras=['2016','2017','2018'],ana='wmugamma
 
 
 
-def getSignalPlotter(sampleDir,prod,eras,analysis,mass,lifetime,signals=['ZH','ggZH','WH','ttH'],modelIndependent=False):
+def getSignalPlotter(sampleDir,prod,eras,analysis,mass,lifetime,signals=['ZH','ggZH','WH','ttH'],brgg=0.5):
     xsecs = {'ggZ': "0.1057", #units in pb
              'Z': "0.8696",
              'Wplus': "0.84",
@@ -427,29 +446,47 @@ def getSignalPlotter(sampleDir,prod,eras,analysis,mass,lifetime,signals=['ZH','g
            }
 
     V=[]
-    br='2G2Q'
+    decays=[]
     for sig in signals:
-        if sig == 'ttH':
+        if sig == 'ttH' or sig == 'ttH2G2Q' or sig == 'ttH4G':
             V.extend(['tt'])
-        elif sig == 'WH':
+        elif sig == 'WH' or sig == 'WH2G2Q' or sig == 'WH4G':
             V.extend(['Wplus','Wminus'])
-        elif sig == 'ZH':
+        elif sig == 'ZH' or sig == 'ZH2G2Q' or sig == 'ZH4G':
             V.extend(['Z'])
-        elif sig == 'ggZH':
+        elif sig == 'ggZH' or sig == 'ggZH2G2Q' or sig == 'ggZH4G':
             V.extend(['ggZ'])
+        if '2G2Q' in sig:
+            decays.extend(['2G2Q'])
+        elif '4G' in sig:
+            decays.extend(['4G'])
+        else :
+            decays.extend(['4G','2G2Q'])
+            
+    decays=list(set(decays))        
     plotters=[]
     for era in eras:
         for sig in V:
-            fs=getFiles(f"{sig}H{br}_M{mass}_ctau{lifetime}_{era}",sampleDir,"MC",era,prod)
-            if len(fs)==0:
-                print(f"WARNING! NO FILE FOUND matching pattern: {sig}H{br}_M{mass}_ctau{lifetime}_{era}")
-                continue
-            for f in fs:
-                plotters.append(rdf_plotter(f, tree=analysis,isMC=True, report = "Report_" + analysis))
-                plotters[-1].addCorrectionFactor(lumifb[era], "flat")                
-                plotters[-1].addCorrectionFactor('1000', "flat") #to conevrt to pb-1                
-                weight = "(1)"
-                if not modelIndependent:
+            for br in decays:
+                fs=getFiles(f"{sig}H{br}_M{mass}_ctau{lifetime}_{era}",sampleDir,"MC",era,prod)
+                if len(fs)==0:                    
+                    print(f"WARNING! NO FILE FOUND matching pattern: {sig}H{br}_M{mass}_ctau{lifetime}_{era}")
+                for f in fs:
+                    plotters.append(rdf_plotter(f, tree=analysis,isMC=True, report = "Report_" + analysis))
+                    plotters[-1].addCorrectionFactor(lumifb[era], "flat")                
+                    plotters[-1].addCorrectionFactor('1000', "flat") #to conevrt to pb-1
+#                    print(f"{sig}H{br}_M{mass}_ctau{lifetime}_{era}")
+                    plotters[-1].define('nPhiGamma', "nSpecificGenParticles(GenPart_pdgId,GenPart_genPartIdxMother,GenPart_status,22,9000006,1)") #To distinguis events based on the branching ratio
+                    if br=='2G2Q':
+                        plotters[-1].addCorrectionFactor('nPhiGamma==2', "flat")
+                        w=brgg*(1-brgg)/(0.5*0.5)
+                        weight = f"({w})"
+                    else:
+                        plotters[-1].addCorrectionFactor('nPhiGamma==4', "flat")
+                        w=brgg*brgg
+                        weight = f"({w})"
+                        
+
                     weight +="*"+xsecs[sig]
                     if sig in ['Z','ggZ']:
                         weight+="*"+BRs['Z']
@@ -459,20 +496,26 @@ def getSignalPlotter(sampleDir,prod,eras,analysis,mass,lifetime,signals=['ZH','g
                         weight+="*"+BRs['ttSemiLeptonic']
                     plotters[-1].addCorrectionFactor(weight, "flat")
                     
-                #Deal with the HEM cuts
-                if era=='2018' and  analysis == 'wen2g':   
-                    plotters[-1].addCorrectionFactor(str(21080.0/59830), "flat")
-                    plotters.append(rdf_plotter(f, isMC=True, tree = analysis, defaultCuts = cutsHEM))
-                    plotters[-1].addCorrectionFactor(lumifb[era], "flat")
-                    plotters[-1].addCorrectionFactor('1000', "flat") #to conevrt to pb-1                             
-                    plotters[-1].addCorrectionFactor(str(38750./59830), "flat")
-                    plotters[-1].addCorrectionFactor(weight, "flat")
+                    #Deal with the HEM cuts
+                    if era=='2018' and  analysis == 'wen2g':   
+                        plotters[-1].addCorrectionFactor(str(21080.0/59830), "flat")
+                        plotters.append(rdf_plotter(f, isMC=True, tree = analysis, defaultCuts = cutsHEM))
+                        plotters[-1].addCorrectionFactor(lumifb[era], "flat")
+                        plotters[-1].addCorrectionFactor('1000', "flat") #to conevrt to pb-1                             
+                        plotters[-1].addCorrectionFactor(str(38750./59830), "flat")
+                        plotters[-1].addCorrectionFactor(weight, "flat")
+                        plotters[-1].define('nPhiGamma', "nSpecificGenParticles(GenPart_pdgId,GenPart_genPartIdxMother,GenPart_status,22,9000006,1)") #To distinguis events based on the branching ratio
+                        if br=='2G2Q':
+                            plotters[-1].addCorrectionFactor('nPhiGamma==2', "flat")                
+                        else:
+                            plotters[-1].addCorrectionFactor('nPhiGamma==4', "flat")                                
+                    
     p=None
     if len(plotters)>0:                
         p = merged_plotter(plotters)
     return p
 
-def getAnalysis(sampleDir,prod,ana,era='Run2',masses=masses,lifetimes=lifetimes,signals=['ZH','ggZH','WH','ttH'],modelIndependent=False,br=0.01,background_method="fakerate"):
+def getAnalysis(sampleDir,prod,ana,era='Run2',masses=masses,lifetimes=lifetimes,signals=['ZH','ggZH','WH','ttH'],brphiphi=0.01,brgg=0.5,background_method="fakerate"):
     analysis={}
     if ana in ['wmn2g','zmm2g']:
         lepton='MU'
@@ -542,26 +585,26 @@ def getAnalysis(sampleDir,prod,ana,era='Run2',masses=masses,lifetimes=lifetimes,
         i=0
         for ct in lifetimes:
             analysis['signal'][m][ct]={}
-            p=getSignalPlotter(sampleDir,prod,eras,ana,m,ct,signals,modelIndependent)
+            p=getSignalPlotter(sampleDir,prod,eras,ana,m,ct,signals,brgg)
             if p!=None:
                 analysis['signal'][m][ct]['sum']=p
                 analysis['signal'][m][ct]['sum'].addCorrectionFactor(leptonSF[ana],'flat')
                 analysis['signal'][m][ct]['sum'].addCorrectionFactor(photonSF[m],'flat')            
-                analysis['signal'][m][ct]['sum'].addCorrectionFactor(str(br),'flat')
+                analysis['signal'][m][ct]['sum'].addCorrectionFactor(str(brphiphi),'flat')
             for signal in signals:
-                p=getSignalPlotter(sampleDir,prod,eras,ana,m,ct,[signal],modelIndependent)
+                p=getSignalPlotter(sampleDir,prod,eras,ana,m,ct,[signal],brgg)
                 if p!=None:
                     analysis['signal'][m][ct][signal]=p
                     analysis['signal'][m][ct][signal].addCorrectionFactor(leptonSF[ana],'flat')
                     analysis['signal'][m][ct][signal].addCorrectionFactor(photonSF[m],'flat')            
-                    analysis['signal'][m][ct][signal].addCorrectionFactor(str(br),'flat')
+                    analysis['signal'][m][ct][signal].addCorrectionFactor(str(brphiphi),'flat')
                 
     return analysis
             
 
 
 
-def runAction(sampleDir,prod,action='fakerate_closure',masses=masses,outputDir='VHresults',era='Run2',analyses=analyses,signals=['ZH','ggZH','WH','ttH'],lifetimes=lifetimes,signal_br=0.01,blinded=False,file_extension='png'):
+def runAction(sampleDir,prod,action='fakerate_closure',masses=masses,outputDir='VHresults',era='Run2',analyses=analyses,signals=['ZH','ggZH','WH','ttH'],lifetimes=lifetimes,brphiphi=0.01,blinded=False,file_extension='png'):
 
 
 
@@ -739,7 +782,7 @@ def runAction(sampleDir,prod,action='fakerate_closure',masses=masses,outputDir='
     elif action=="data_vs_background":
         print("Make data vs background plots in control regions")
         for ana in analyses:
-            analysis=getAnalysis(sampleDir,prod,ana,background_method='fakerate',era=era,br=signal_br,signals=signals,lifetimes=[100])
+            analysis=getAnalysis(sampleDir,prod,ana,background_method='fakerate',era=era,brphiphi=brphiphi,signals=signals,lifetimes=[100])
             for m in masses:
                 stack=mplhep_plotter(label=analysis_status,data=True,lumi=lumifb[era],com=center_of_mass[era])
                 stack.add_plotter(analysis['bkg'][m],label="Background",typeP='background',error_mode='w2')
@@ -773,7 +816,7 @@ def runAction(sampleDir,prod,action='fakerate_closure',masses=masses,outputDir='
 
         print("Make signal Contamination plots in control regions")
         for ana in analyses:
-            analysis=getAnalysis(sampleDir,prod,ana,background_method='fakerate',era=era,br=signal_br,signals=mySignals[ana],lifetimes=lifetimes)
+            analysis=getAnalysis(sampleDir,prod,ana,background_method='fakerate',era=era,brphiphi=brphiphi,signals=mySignals[ana],lifetimes=lifetimes)
             for m in masses:
                 stack=mplhep_plotter(label=analysis_status,data=True,lumi=lumifb[era],com=center_of_mass[era])
                 for ctau in lifetimes:
@@ -814,7 +857,7 @@ def runAction(sampleDir,prod,action='fakerate_closure',masses=masses,outputDir='
                 l='ELE'
             cutDescriptors=['Preselection & HLT','W/Z reco',r'$\gamma \ p_{T}$ cuts',r'$p_{T}>20$ GeV, m>4 GeV',r'$e\gamma$ mis-ID','final photon ID',r'$L_{xy}>-10$ cm',]
             colors=['dimgrey','lightcoral','chocolate','yellowgreen','turquoise','deepskyblue','darkviolet','magenta']
-            analysis=getAnalysis(sampleDir,prod,ana,background_method='fakerate',era=era,br=signal_br,signals=mySignals[ana],lifetimes=lifetimes)
+            analysis=getAnalysis(sampleDir,prod,ana,background_method='fakerate',era=era,brphiphi=brphiphi,signals=mySignals[ana],lifetimes=lifetimes)
             mh.style.use('CMS')            
             fig,ax = plt.subplots(1,len(lifetimes),sharey=True,figsize=(10*len(lifetimes),10))
             plt.subplots_adjust(wspace=0)        
@@ -905,7 +948,7 @@ def runAction(sampleDir,prod,action='fakerate_closure',masses=masses,outputDir='
         
         for ana in analyses:
             #create a plotter that has all MC as data
-            analysis=getAnalysis(sampleDir,prod,ana,background_method='fakerate',era=era,br=signal_br,signals=mySignals[ana],lifetimes=lifetimes)
+            analysis=getAnalysis(sampleDir,prod,ana,background_method='fakerate',era=era,brphiphi=brphiphi,signals=mySignals[ana],lifetimes=lifetimes)
             for m in masses:
                 print(f"Running {ana} m={m} GeV")
                 stack=mplhep_plotter(label=analysis_status,data=True,lumi=lumifb[era],com=center_of_mass[era])
@@ -940,7 +983,7 @@ def runAction(sampleDir,prod,action='fakerate_closure',masses=masses,outputDir='
         
             for i,ana in enumerate(analyses):
                 #create a plotter that has all MC as data
-                analysis=getAnalysis(sampleDir,prod,ana,background_method='fakerate',era=era,br=signal_br,signals=[],lifetimes=[])
+                analysis=getAnalysis(sampleDir,prod,ana,background_method='fakerate',era=era,brphiphi=brphiphi,signals=[],lifetimes=[])
                 print(f"Running {i} {ana} m={m} GeV")
                 stack=mplhep_plotter(label=analysis_status,data=True,lumi=lumifb[era],com=center_of_mass[era])
                 stack.add_plotter(analysis['bkg'][m],label='Background',typeP='background',error_mode='poisson_bootstrap')
@@ -990,8 +1033,7 @@ def runAction(sampleDir,prod,action='fakerate_closure',masses=masses,outputDir='
             'zee2g':r'$Z\rightarrow e e$',
 
             }
-        for m in masses:
-    
+        for m in masses:    
             #create the common axes
             mh.style.use('CMS')
             fig,ax = plt.subplots(1,len(analyses),sharey=True,figsize=(25,10))
@@ -999,7 +1041,7 @@ def runAction(sampleDir,prod,action='fakerate_closure',masses=masses,outputDir='
         
             for i,ana in enumerate(analyses):
                 #create a plotter that has all MC as data
-                analysis=getAnalysis(sampleDir,prod,ana,background_method='fakerate',era=era,br=signal_br,signals=mySignals[ana],lifetimes=lifetimes)
+                analysis=getAnalysis(sampleDir,prod,ana,background_method='fakerate',era=era,brphiphi=brphiphi,signals=mySignals[ana],lifetimes=lifetimes)
                 print(f"Running {i} {ana} m={m} GeV")
                 stack=mplhep_plotter(label=analysis_status,data=True,lumi=lumifb[era],com=center_of_mass[era],capsize=0)
                 stack.add_plotter(analysis['bkg'][m],label='Background',typeP='background',error_mode='poisson_bootstrap')
@@ -1045,6 +1087,16 @@ def runAction(sampleDir,prod,action='fakerate_closure',masses=masses,outputDir='
                 plt.savefig(f'{outputDir}/prefit_1D_{m}_{era}.{file_extension}', dpi=400, bbox_inches='tight')
 
             
+    elif action=="check_files":
+        mySignals={
+            'wmn2g':['WH','ttH'],
+            'wen2g':['WH','ttH'],
+            'zmm2g':['ZH','ggZH'],
+            'zee2g':['ZH','ggZH']}       
+        for i,ana in enumerate(analyses):
+            analysis=getAnalysis(sampleDir,prod,ana,background_method='fakerate',era='Run2',brphiphi=brphiphi,signals=mySignals[ana],lifetimes=lifetimes)
+
+
     #ACTION: Make datacards 1D            
     elif action=="make_datacards_1d":
         import copy
@@ -1055,23 +1107,25 @@ def runAction(sampleDir,prod,action='fakerate_closure',masses=masses,outputDir='
         xsecUnc = {'WH'  : [1+0.005, 1-0.007],
                    'ZH'  : [1+0.038, 1-0.031],
                    'ggZH': [1+0.251, 1-0.189],
-                   'ttH' : [1+0.058, 1-0.092]}
+                   'ttH' : [1+0.058, 1-0.092]
+                   }
 
         #symmetric
         pdfUnc = {'WH'  : 1.019,
                   'ZH'  : 1.016,
                   'ggZH': 1.024,
-                  'ttH' : 1.036}
+                  'ttH' : 1.036,
+                  }
         mySignals={
-            'wmn2g':['WH','ttH'],
-            'wen2g':['WH','ttH'],
-            'zmm2g':['ZH','ggZH'],
-            'zee2g':['ZH','ggZH']}
+            'wmn2g':['WH2G2Q','ttH2G2Q','WH4G','ttH4G'],
+            'wen2g':['WH2G2Q','ttH2G2Q','WH4G','ttH4G'],
+            'zmm2g':['ZH2G2Q','ggZH2G2Q','ZH4G','ggZH4G'],
+            'zee2g':['ZH2G2Q','ggZH2G2Q','ZH4G','ggZH4G']}
             
         for ana in analyses:
             for e in eras:
                 for m in masses:
-                    analysis=getAnalysis(sampleDir,prod,ana,background_method='fakerate',era=e,br=signal_br,masses=[m],signals=signals,lifetimes=lifetimes)                        
+                    analysis=getAnalysis(sampleDir,prod,ana,background_method='fakerate',era=e,brphiphi=brphiphi,masses=[m],signals=mySignals[ana],lifetimes=lifetimes)                        
                     for ibin,binval in enumerate(binning1d[ana][:-1]):
                         dxy_min=binning1d[ana][ibin]
                         dxy_max=binning1d[ana][ibin+1]
@@ -1081,24 +1135,34 @@ def runAction(sampleDir,prod,action='fakerate_closure',masses=masses,outputDir='
                         dcmBase = cnc_datacard_maker(outDir=outputDir,binname="abstract",cuts=cutstring)
                         dcmBase.add('data','data',analysis['data'],{})
                         dcmBase.add('bkg','background',analysis['bkg'][m],uncertainties={
-                            f"CMS_DDP_{ana}_{e}_bin_{ibin}_CR_stats":{'type':'statAsym'},
-                            f"CMS_DDP_fakeRateUnc_{e}":{'type':'weightAsymm','weightUp':'fakeRate_up','weightDown':'fakeRate_down','weightOrig':'fakeRate_val'},
-                            f"CMS_DDP_{ana}_{e}_bin_{ibin}_bkg_lowstat":{'type':'zeroRate','value':0.18}
+                            f"CMS_VHDDP_{ana}_{e}_bin_{ibin}_CR_stats":{'type':'statAsym'},
+                            f"CMS_VHDDP_fakeRateUnc_{e}":{'type':'weightAsymm','weightUp':'fakeRate_up','weightDown':'fakeRate_down','weightOrig':'fakeRate_val'},
+                            f"CMS_VHDDP_{ana}_{e}_bin_{ibin}_bkg_lowstat":{'type':'zeroRate','value':0.18}
 
                         },error_mode='poisson_bootstrap')
                     
                         for ctau in lifetimes:
                             dcm=copy.deepcopy(dcmBase)
-                            dcm.binname=f"OneDim_{ana}_m{m}_ctau{ctau}_era{e}_bin_{ibin}"
+                            dcm.binname=f"{ana}_m{m}_ctau{ctau}_era{e}_bin{ibin}"
                             print(f"ctau={ctau} mm")
                             for signal in mySignals[ana]:
                                 if not (signal in analysis['signal'][m][ctau].keys()):
                                     print(f"Signal not found {signal} skipping")
                                     continue
+                                # add a parameter for branching fraction
+                                if '2G2Q' in signal:
+                                    dcm.parameters.append(f"CMS_VHDDP_{ana}_{e}_bin_{ibin}_{signal}_scale rateParam {dcm.binname} {signal} (@0*(1.0-@0)/(0.5*0.5)) brgg")
+                                    theory=signal.split('2G2Q')[0]    
+                                    
+                                elif '4G' in signal:
+                                    dcm.parameters.append(f"CMS_VHDDP_{ana}_{e}_bin_{ibin}_{signal}_scale rateParam {dcm.binname} {signal} ((@0*@0)/(0.5*0.5)) brgg")
+                                    theory=signal.split('4G')[0]    
+                                    
                                 signalUncertainties={
                                     f'CMS_lumi_{e}':{'type':'adhoc','kind':'lnN','value':lumiUnc[e]},                                        
-                                    f'CMS_{signal}_xsec':{'type':'adhoc','kind':'lnN','value':f"{xsecUnc[signal][1]}/{xsecUnc[signal][0]}"},
-                                    'CMS_pdf':{'type':'adhoc','kind':'lnN','value':pdfUnc[signal]}
+                                    f'CMS_{theory}_xsec':{'type':'adhoc','kind':'lnN','value':f"{xsecUnc[theory][1]}/{xsecUnc[theory][0]}"},
+                                    f"CMS_VHDDP_{signal}_{ana}_{e}_bin_{ibin}_stats":{'type':'statSym'},                                    
+                                    'CMS_pdf':{'type':'adhoc','kind':'lnN','value':pdfUnc[theory]}
                                 }
                                 #add lepton ID SF, some string manipulations in place
                                 leptonSFs = leptonSF[ana]
@@ -1137,7 +1201,7 @@ def runAction(sampleDir,prod,action='fakerate_closure',masses=masses,outputDir='
                             #write only reasonable cards
                             write_card_signal = sum([(t=='signal') for s,t in  dcm.types.items()])
                             write_card_bkg = sum([(t=='background') for s,t in  dcm.types.items()])
-                                
+                            dcm.parameters.append(f"brgg extArg 0.5 [0,1]")                                
                             if write_card_signal>0:
                                 dcm.write()
                             del dcm
@@ -1171,7 +1235,7 @@ def runAction(sampleDir,prod,action='fakerate_closure',masses=masses,outputDir='
             for e in eras:
                 for m in masses:                    
                     for ctau in lifetimes:
-                        analysis=getAnalysis(sampleDir,prod,ana,background_method='fakerate',era=e,br=signal_br,masses=[m],signals=signals,lifetimes=[ctau])                        
+                        analysis=getAnalysis(sampleDir,prod,ana,background_method='fakerate',era=e,brphiphi=brphiphi,masses=[m],signals=signals,lifetimes=[ctau])                        
                         print(f"Making Datacards for {ana} in era {e} for m={m} GeV and ctau={ctau} mm")
                         for ibinx,bin_setup in enumerate(binning[ana][m]):
                             mass_min = bin_setup[0][0]

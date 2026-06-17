@@ -4,7 +4,9 @@ class cnc_datacard_maker(object):
     def __init__(self,outDir,binname,cuts):
         self.rates={}
         self.nuisances={}
+        self.rateParameters=[]
         self.parameters=[]
+        
         self.types={}
         self.data=-1        
         self.binname=binname
@@ -81,6 +83,8 @@ class cnc_datacard_maker(object):
                 errorDown = float(np.sum(down)/rate)
                 if errorUp==0.0 or errorDown==0.0:
                     block=True
+                if errorUp==1.0 and errorDown==1.0:
+                    block=True
                 nData = ('lnN',str(errorDown)+'/'+str(errorUp))
             elif unc['type'] =='weightAsymm':
                 if rate==0.0:
@@ -97,6 +101,8 @@ class cnc_datacard_maker(object):
                 errorDown = float(np.sum(down)/rate)
                 if errorUp==0.0 or errorDown==0.0:
                     block=True
+                if errorUp==1.0 and errorDown==1.0:
+                    block=True                   
                 nData = ('lnN',str(errorDown)+'/'+str(errorUp))
             elif unc['type'] =='adhoc':
                 nData = (unc['kind'],unc['value'])
@@ -159,9 +165,16 @@ class cnc_datacard_maker(object):
                     file.write(f"{v}\t")
                 file.write('\n')
                             
+            for p in self.rateParameters:
+                if p['signal'] in self.types.keys():
+                    n=p['name']
+                    b=p['bin']
+                    s=p['signal']
+                    f=p['formula']
+                    file.write(f"{n} rateParam {b} {s} {f}\n")
+
             for p in self.parameters:
-                file.write(p)
-                file.write('\n')
+                file.write(f"{p}\n")
                 
                 
                 

@@ -1151,11 +1151,12 @@ def runAction(sampleDir,prod,action='fakerate_closure',masses=masses,outputDir='
                                     continue
                                 # add a parameter for branching fraction
                                 if '2G2Q' in signal:
-                                    dcm.parameters.append(f"CMS_VHDDP_{ana}_{e}_bin_{ibin}_{signal}_scale rateParam {dcm.binname} {signal} (@0*(1.0-@0)/(0.5*0.5)) brgg")
+                                    dcm.rateParameters.append({'name':f"CMS_VHDDP_{ana}_{e}_bin_{ibin}_{signal}_scale",'bin':f"{dcm.binname}",'signal':f'{signal}', 'formula':'(@0*(1.0-@0)/(0.5*0.5)) brgg'})
                                     theory=signal.split('2G2Q')[0]    
                                     
                                 elif '4G' in signal:
-                                    dcm.parameters.append(f"CMS_VHDDP_{ana}_{e}_bin_{ibin}_{signal}_scale rateParam {dcm.binname} {signal} ((@0*@0)/(0.5*0.5)) brgg")
+                                    dcm.rateParameters.append({'name':f"CMS_VHDDP_{ana}_{e}_bin_{ibin}_{signal}_scale",'bin':f"{dcm.binname}",'signal':f'{signal}', 'formula':'(@0*@0)/(0.5*0.5) brgg'})
+
                                     theory=signal.split('4G')[0]    
                                     
                                 signalUncertainties={

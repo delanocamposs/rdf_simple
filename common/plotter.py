@@ -11,6 +11,7 @@ from python.VHTools.py_helpers import *
 sty = tdrstyle.setTDRStyle()
 from scipy.stats import chi2,poisson
 import matplotlib.pyplot as plt
+from cycler import cycler
 import mplhep as mh
 from matplotlib.ticker import ScalarFormatter
 drawprelim = True
@@ -920,7 +921,8 @@ class mplhep_plotter(object):
                         stack=self.stack,
                         label=background_labels,
                         ax=ax,
-                        alpha=(alpha if self.stack==False else 1.0), 
+#                        alpha=(alpha if self.stack==False else 1.0), 
+                        alpha=alpha, 
                         density=(True if self.stack==False else False)
                         )
            
@@ -936,15 +938,16 @@ class mplhep_plotter(object):
                 ax.fill_between(background_edges[0],
                                 np.append(background_sum-np.sqrt(background_sumw2[0]),0),
                                 np.append(background_sum+np.sqrt(background_sumw2[1]),0),
-                                step='post', color='lightgray', alpha=0.5, hatch='////',label='bkg. uncertainty')            
+                                step='post', color='#cdcbcb', alpha=0.5, hatch='xxxx',label='bkg. uncertainty')            
         if len(signal_hists)>0:
             mh.histplot(signal_hists,signal_edges[0],
-                        histtype='step',
+                        histtype=('step' if self.stack else 'fill'),
                         stack=False,
                         label=signal_labels,
                         color=signal_colors,
                         yerr=None,
                         ax=ax,
+                        alpha =( 1.0 if self.stack else alpha), 
                         density=(True if self.stack==False else False)                        
                         )                   
             #Now redraw the background outlines if we are doing stack
@@ -997,10 +1000,11 @@ class mplhep_plotter(object):
             plt.margins(x=0)            
             if show:
                 plt.show()
-            
+        if quiet==False:        
+            return fig,ax
+        
 
-
-    def pull1d(self,var,cuts,model,alpha=1.0,xlabel="",xunits="",legend_loc='upper right',show=True,ax=None,dndx=False):
+    def pull1d(self,var,cuts,model,alpha=1.0,xlabel="",xunits="",legend_loc='upper right',show=True,ax=None):
         background_edges=[]
         data_hists=[]
         data_edges=[]
@@ -1009,7 +1013,7 @@ class mplhep_plotter(object):
         bkgExists=False        
         for p in self.plotters:
             if p['type']=='background':
-                edges,data,w2=p['plotter'].array1d(var,cuts,model,error_mode=p['error_mode'],dndx=dndx)
+                edges,data,w2=p['plotter'].array1d(var,cuts,model,error_mode=p['error_mode'])
                 if bkgExists==False:
                     background_sum=data
                     background_sumw2=w2
@@ -1022,10 +1026,15 @@ class mplhep_plotter(object):
                     
         for p in self.plotters:
             if p['type']=='data':
-                edges,data,w2=p['plotter'].array1d(var,cuts,model,error_mode=p['error_mode'],dndx=dndx)               
-                data = data-background_sum
-                w2 = w2+background_sumw2
-                data = [ data[i]/np.sqrt(w2[0]) if data[i]>0 else data[i]/np.sqrt(w2[1])]
+                edges,data,w2=p['plotter'].array1d(var,cuts,model,error_mode=p['error_mode'])               
+                tmp=[]
+#                print(data,w2[0],w2[1])
+                for d,b,dd,du,bd,bu in zip(data,background_sum,w2[0],w2[1],background_sumw2[0],background_sumw2[1]):
+                    if d>b:
+                        tmp.append((d-b)/np.sqrt(dd+bu))
+                    else:
+                        tmp.append((d-b)/np.sqrt(du+bd))                        
+                data = np.array(tmp)
                 data_hists.append(data)
                 data_edges.append(edges)
                 data_labels.append(p['label'])
@@ -1035,11 +1044,24 @@ class mplhep_plotter(object):
             quiet=False
         if quiet==False:        
             fig,ax = plt.subplots()
-        ax.fill_between(background_edges[0],
-                        np.append(-3,0),
-                        np.append(3,0),
-                        step='post', color='lightgray', alpha=0.5, hatch='////')            
-        if len(data_hists)>0:           
+        ax.fill_between(background_edges,
+                        np.full(len(background_edges),-2),
+                        np.full(len(background_edges),2),
+                        step='post', color='lightgray', alpha=0.5)            
+        ax.fill_between(background_edges,
+                        np.full(len(background_edges),-1),
+                        np.full(len(background_edges),1),
+                        step='post', color='gray', alpha=0.5)
+        mh.histplot(np.full(len(background_edges)-1,0.0),background_edges,
+                    histtype='step',
+                    color=(['black']),
+                    stack=False,
+                    ax=ax
+                    )
+
+        
+        if len(data_hists)>0:
+
             mh.histplot(data_hists,data_edges[0],
                         histtype='errorbar',
                         stack=False,
@@ -1047,7 +1069,9 @@ class mplhep_plotter(object):
                         color=data_colors,
                         capsize=self.capsize,
                         ax=ax,
-                        density=False                        
+                        density=False,
+                        xerr=False,
+                        yerr=False
                         )
 
         #add labels and legends only if you made an axis or else do it later
@@ -1069,11 +1093,7 @@ class mplhep_plotter(object):
                     ax.set_xlabel(f"{xlabel} ({xunits})")
                 else:
                     ax.set_xlabel(f"{xlabel}")                
-            if self.stack:
-                ax.set_ylabel("Events")
-            else:
-                ax.set_ylabel("a.u")
-
+            ax.set_ylabel(r"(Data-Pred.)/$\sigma$")
             plt.margins(x=0)            
             if show:
                 plt.show()
@@ -1418,43 +1438,39 @@ class mplhep_plotter(object):
 
 #class for limits
 class limit_plotter(object):
-    def __init__(self,filename,label=None,lumi=137.62,data=True,com=13,text=None,scale=1):
+    def __init__(self,label=None,lumi=137.62,data=True,com=13,text=None,scale=1):
         mh.style.use('CMS')
         self.label=label
         self.lumi=lumi
         self.com=com
         self.data=data
-        self.rdf = ROOT.RDataFrame('limit',filename)
+
         self.text=text
         self.scale=scale
 
-    def brazilian_flag(self,band2sigma_color='lime',band1sigma_color='yellow',ax=None,show=False,quiet=False,legend_loc='upper right',xlabel='',xunits='',ylabel='95% CL Upper Limits'):
-        expected025=self.rdf.Filter('TMath::Abs(quantileExpected-0.025)<0.001').AsNumpy(['mh','limit'])
-        expected16=self.rdf.Filter('TMath::Abs(quantileExpected-0.16)<0.001').AsNumpy(['mh','limit'])
-        expected=self.rdf.Filter('TMath::Abs(quantileExpected-0.5)<0.001').AsNumpy(['mh','limit'])
-        expected84=self.rdf.Filter('TMath::Abs(quantileExpected-0.84)<0.001').AsNumpy(['mh','limit'])
-        expected975=self.rdf.Filter('TMath::Abs(quantileExpected-0.975)<0.001').AsNumpy(['mh','limit'])
-        observed=self.rdf.Filter('quantileExpected==-1').AsNumpy(['mh','limit'])
+    def brazilian_flag(self,df,x,band2sigma_color='lime',band1sigma_color='yellow',ax=None,show=False,quiet=False,legend_loc='upper right',xlabel='',xunits='',ylabel='95% CL Upper Limits',grids=False):
+
 #        import pdb;pdb.set_trace()
         if ax is None:
             fig,ax = plt.subplots()
         
             
-        ax.fill_between(expected025['mh'],
-                        expected025['limit']*self.scale,
-                        expected975['limit']*self.scale,
-                        color=band2sigma_color, alpha=1,label=r'$\pm 1 \sigma$')            
-        ax.fill_between(expected16['mh'],
-                        expected16['limit']*self.scale,
-                        expected84['limit']*self.scale,
-                        color=band1sigma_color, alpha=1,label=r'$\pm 2 \sigma$')           
+        ax.fill_between(df[(df['quantile']==500)][x],
+                        df[(df['quantile']==25)]['limit']*self.scale,
+                        df[(df['quantile']==975)]['limit']*self.scale,
+                        color=band2sigma_color, alpha=1,label=r'$\pm 2 \sigma$')            
+        ax.fill_between(df[(df['quantile']==500)][x],
+                        df[(df['quantile']==160)]['limit']*self.scale,
+                        df[(df['quantile']==840)]['limit']*self.scale,
+                        color=band1sigma_color, alpha=1,label=r'$\pm 1 \sigma$')           
         
-        ax.plot(expected['mh'],expected['limit']*self.scale,linestyle='--',color='k',label=r'Expected',lw=4)
-        ax.plot(observed['mh'],observed['limit']*self.scale,color='k',label='Observed',lw=4)
+        ax.plot(df[(df['quantile']==500)][x],df[(df['quantile']==500)]['limit']*self.scale,linestyle='--',color='k',label=r'Expected',lw=4)
+        ax.plot(df[(df['quantile']==-1)][x],df[(df['quantile']==-1)]['limit']*self.scale,color='k',label='Observed',lw=4)
         ax.margins(x=0)
         ax.minorticks_on()
-        ax.grid(which='major', linestyle='-', linewidth='0.5', color='gray')
-        ax.grid(which='minor', linestyle=':', linewidth='0.5', color='lightgray')                     
+        if grids:
+            ax.grid(which='major', linestyle='-', linewidth='0.5', color='gray')
+            ax.grid(which='minor', linestyle=':', linewidth='0.5', color='lightgray')                     
         if quiet==False:
             ax.legend(loc=legend_loc)
             if xlabel!="":
@@ -1469,16 +1485,13 @@ class limit_plotter(object):
         if show:
             plt.show()
         
-    def expected_vs_observed(self,col='lime',ax=None,show=False,quiet=False,legend_loc='upper right',xlabel='',xunits='',ylabel='95% CL Upper Limits'):
-        expected=self.rdf.Filter('TMath::Abs(quantileExpected-0.5)<0.001').AsNumpy(['mh','limit'])
-        observed=self.rdf.Filter('quantileExpected==-1').AsNumpy(['mh','limit'])
+    def expected_vs_observed(self,df,x,col='lime',ax=None,show=False,quiet=False,legend_loc='upper right',xlabel='',xunits='',ylabel='95% CL Upper Limits',label_suffix=''):
 
         if ax is None:
             fig,ax = plt.subplots()
         
-            
-        ax.plot(expected['mh'],expected['limit']*self.scale,linestyle='--',color=col,label=r'Asymptotic $CL_s$ expected')
-        ax.plot(observed['mh'],observed['limit']*self.scale,color=col,label='Observed')
+        ax.plot(df[(df['quantile']==500)][x],df[(df['quantile']==500)]['limit']*self.scale,linestyle='--',color=col,label=r'Expected '+label_suffix,lw=2)
+        ax.plot(df[(df['quantile']==-1)][x],df[(df['quantile']==500)]['limit']*self.scale,color=col,label='Observed '+label_suffix,lw=2)
         ax.margins(x=0)
                      
         if quiet==False:
@@ -1505,7 +1518,7 @@ class multilimit_plotter(object):
 
         self.plotters=plotters
 
-    def brazilian_flag(self,band2sigma_color='lime',band1sigma_color='yellow',show=False,legend_loc='upper right',xlabel='',xunits='',ylabel='95% CL Upper Limits',log=True,textx=0.5,texty=0.02,fontsize=40):
+    def brazilian_flag(self,x,band2sigma_color='lime',band1sigma_color='yellow',show=False,legend_loc='upper right',xlabel='',xunits='',ylabel='95% CL Upper Limits',log=True,textx=0.5,texty=0.02,fontsize=40):
         
         fig,ax = plt.subplots(1,len(self.plotters),sharey=True,figsize=(7.5*len(self.plotters),20))
         plt.subplots_adjust(wspace=0)

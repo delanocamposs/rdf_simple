@@ -11,6 +11,7 @@ from common.plotter import *
 from common.datacard_maker import cnc_datacard_maker
 import numpy as np
 import pickle        
+import matplotlib.colors as mpcolors 
 
 ROOT.gInterpreter.Declare('#include "common/chelpers.h"')
 ROOT.gInterpreter.Declare('#include "common/signalEfficiency.h"')
@@ -28,8 +29,15 @@ signal_colors={0:'#d31a17',
                10:'#005a9a',
                20:'chocolate',
                50:'darkorange',
-               100:'#98c565',
+               100:'darkgreen',
                1000:'#282d65'}
+signal_colors_m={15:'#d31a17',
+               20:'chocolate',
+               30:'#005a9a',                 
+               40:'darkorange',
+               50:'#282d65',
+               55:'darkgreen'}
+
 analyses  = ['wmn2g','wen2g','zmm2g','zee2g']
 signals=['ZH','ggZH','WH','ttH']
 
@@ -44,7 +52,7 @@ center_of_mass = {'2018': 13,
                   'Run2': 13}
 
 #Colors:
-cmscolors = ["#218fcf", "#ffde9c", "#e5e9ee", "#98c565", 
+cmscolors = ["#218fcf", "#ffde9c",  "#98c565","#e5e9ee", 
              "#e62d1a", "#282d65", "#005a9a", "#85d2fb", "#3cbee9"]
 mh.style.use(["CMS", {"axes.prop_cycle": cycler("color", cmscolors)}])
 
@@ -119,7 +127,12 @@ for analysis in ['wmn2g','wen2g','zmm2g','zee2g']:
                                               cuts['pt'][m],
                                               cuts['photons'][m],
                                               cuts['misID'][v][l][m],
-                                              f"(Photon_passCutBasedID[best_2g_idx1_m{m}]>0)"])                                              
+                                              f"(Photon_passCutBasedID[best_2g_idx1_m{m}]>0)"])
+        cuts[analysis][m]['noid']='&&'.join([cuts[v][l],
+                                              cuts['pt'][m],
+                                              cuts['photons'][m],
+                                             cuts['misID'][v][l][m]])
+        
         cuts[analysis][m]['precr_abcd']='&&'.join([cuts[v][l],
                                               cuts['pt'][m],
                                               cuts['photons'][m],
@@ -157,6 +170,7 @@ binning={'wen2g': {7: [((4.0, 6.0), [-10.0, 40.0, 70.0, 110.0]), ((6.0, 8.0), [-
 
 binning1d={'wen2g':np.array([-10.,10.,30.,50.,75.,110.]),'wmn2g':np.array([-10.,10.,30.,50.,75.,110.]),'zmm2g':np.array([-10.,30.,75.,110.]),'zee2g':np.array([-10.,30.,75.,110.])}
 binning1d_sb={'wen2g':np.array([-160.,-130.,-110.,-90.,-70.,-50.,-30.,-10.]),'wmn2g':np.array([-160.,-130.,-110.,-90.,-70.,-50.,-30.,-10.]),'zmm2g':np.array([-160.,-110.,-60.,-10.]),'zee2g':np.array([-160.,-110.,-60.,-10.])}
+binning_mass={'wen2g':np.array([4.,12.,20.,28.,36.,44.,52.,60.,68.]),'wmn2g':np.array([4.,12.,20.,28.,36.,44.,52.,60.,68.]),'zmm2g':np.array([4.,20.,44.,68.]),'zee2g':np.array([4.,20.,44.,68.])}
 
 
 # Scale factor stuff 
@@ -562,8 +576,10 @@ def getAnalysis(sampleDir,prod,ana,era='Run2',masses=masses,lifetimes=lifetimes,
             analysis['bkg'][m].define("fakeRate_val","fakeRate[0]")           
             analysis['bkg'][m].define("fakeRate_up","fakeRate[1]")
             analysis['bkg'][m].define("fakeRate_down","fakeRate[2]")
-        analysis['bkg'][m].setFillProperties(1001, ROOT.kAzure+5)
-        analysis['bkg'][m].setLineProperties(1, ROOT.kAzure+5, 3)        
+        if background_method!="":
+    
+            analysis['bkg'][m].setFillProperties(1001, ROOT.kAzure+5)
+            analysis['bkg'][m].setLineProperties(1, ROOT.kAzure+5, 3)        
 
 
     #For these MC sampleswe do not apply photon scale factors since they are not used for data MC/comparison
@@ -680,53 +696,140 @@ def runAction(sampleDir,prod,action='fakerate_closure',masses=masses,outputDir='
         for m in masses:
             ana='wmn2g'
             analysis=getAnalysis(sampleDir,prod,ana,background_method='fakerate',era=era,signals=signals,lifetimes=lifetimes)
-            stack=mplhep_plotter(com=center_of_mass[era],data=False,lumi=None)
+            stack=mplhep_plotter(com=center_of_mass[era],data=False,lumi=None,label=analysis_status)
             stack.stack=False
-            
+            signal_plotters=[]
             for ctau in lifetimes:
                 analysis['signal'][m][ctau]['sum'].define("deltaLXY",f"best_2g_dxy_m{m}-genLxy(GenPart_vx[GenPart_isSignal], GenPart_vy[GenPart_isSignal])")
+                signal_plotters.append(analysis['signal'][m][ctau]['sum'])
                 stack.add_plotter(analysis['signal'][m][ctau]['sum'],label=r'$c\tau=$'+f"{ctau} mm",typeP='signal',error_mode='w2',color=signal_colors[ctau])                
 
-            dlxy,ax=stack.hist1d("deltaLXY",cuts[ana][m]['sr'],model=('a','a',60,-15,15),alpha=0.5,xlabel=r"$\Delta L_{xy}$ ",xunits="",show=False,legend_loc='upper left')
+            #make the resolution plot vs gen Lxy
+#            merged=merged_plotter(signal_plotters)
+#            xedges,yedges,delta2d,w2_2d = merged.array2d('genLXY','deltaLXY',cuts[ana][m]['sr'],('delta','delta',22,0.,110.,24,-8.,8.))
+#            x_centers = (xedges[:-1] + xedges[1:]) / 2
+#            y_centers = (yedges[:-1] + yedges[1:]) / 2
+#            y_centers_sq = y_centers ** 2
+#            numerator = np.sum(delta2d.T* y_centers_sq, axis=1)
+            # Denominator: Total counts in each x bin#
+#            denominator = np.sum(delta2d.T, axis=1)
 
-            ax.text(0.05, 0.75, rf"$m_\Phi={m}\ \mathrm{{GeV}}$" , transform=ax.transAxes,
-                     fontsize=20, ha='left', va='center', 
-                     bbox=dict(facecolor='white',edgecolor='none', alpha=0.5))
+            # Suppress division-by-zero warnings for empty x-bins
+#            with np.errstate(divide='ignore', invalid='ignore'):
+#                mean_y_sq = numerator / denominator
+#                y_rms = np.sqrt(mean_y_sq)
+#            fig, ax = plt.subplots()
+#            mesh = ax.pcolormesh(xedges, yedges, delta2d, cmap='PuBu',norm=colors.LogNorm(),shading='flat')
+#            plt.plot(x_centers,y_rms,color='k')
+#            plt.savefig(f'{outputDir}/kinfit_delta2d.{file_extension}', dpi=400, bbox_inches='tight')
+#            plt.close()
+            
+                
+            dlxy,ax=stack.hist1d("deltaLXY",cuts[ana][m]['sr'],model=('a','a',30,-15,15),alpha=1,xlabel=r"$\Delta L_{xy}$ ",xunits="cm",show=False,legend_loc='upper left',signalstep=True,top_space=0.3)
+
+            ax.text(0.05, 0.65, rf"$m_\Phi={m}\ \mathrm{{GeV}}$" , transform=ax.transAxes,
+                     fontsize=30, ha='left', va='center', 
+                     bbox=dict(facecolor='white',edgecolor='none', alpha=1))
 
             plt.savefig(f'{outputDir}/kinfit_deltaLXY_m{m}.{file_extension}', dpi=400, bbox_inches='tight')
+            plt.close()
 
             with open(f'{outputDir}/kinfit_deltaLXY_m{m}.pickle', "wb") as file:
                 pickle.dump(dlxy, file)
-            mgg,ax=stack.hist1d(f"best_2g_raw_mass_m{m}",cuts[ana][m]['sr'],model=('a','a',100,8,m+2),alpha=0.5,xlabel=r"$m_{\gamma\gamma}$",xunits="GeV",show=False,legend_loc='upper left')
+            mgg,ax=stack.hist1d(f"best_2g_raw_mass_m{m}",cuts[ana][m]['sr'],model=('a','a',100,8,m+2),alpha=1,xlabel=r"$m_{\gamma\gamma}$",xunits="GeV",show=False,legend_loc='upper left',signalstep=True,top_space=0.3)
 
-            ax.text(0.05, 0.75, rf"$m_\Phi={m}\ \mathrm{{GeV}}$" , transform=ax.transAxes,
-                    fontsize=20, ha='left', va='center', 
-                    bbox=dict(facecolor='white',edgecolor='none', alpha=0.5))
+            ax.text(0.05, 0.65, rf"$m_\Phi={m}\ \mathrm{{GeV}}$" , transform=ax.transAxes,
+                    fontsize=30, ha='left', va='center', 
+                    bbox=dict(facecolor='white',edgecolor='none', alpha=1))
 
             with open(f'{outputDir}/kinfit_mass_m{m}.pickle', "wb") as file:
                 pickle.dump(mgg, file)            
             plt.savefig(f'{outputDir}/kinfit_mass_m{m}.{file_extension}', dpi=400, bbox_inches='tight')
-            dxy,ax=stack.hist1d(f"best_2g_dxy_m{m}",cuts[ana][m]['sr'],model=('a','a',90,-10,80),alpha=0.5,xlabel=r"$d_{xy}$",xunits="cm",show=False)
-            ax.text(0.05, 0.75, rf"$m_\Phi={m}\ \mathrm{{GeV}}$" , transform=ax.transAxes,
-                    fontsize=20, ha='left', va='center', 
-                    bbox=dict(facecolor='white',edgecolor='none', alpha=0.5))
+            dxy,ax=stack.hist1d(f"best_2g_dxy_m{m}",cuts[ana][m]['sr'],model=('a','a',90,-10,80),alpha=1,xlabel=r"$d_{xy}$",xunits="cm",show=False,signalstep=True,top_space=0.3)
+            ax.text(0.75, 0.65, rf"$m_\Phi={m}\ \mathrm{{GeV}}$" , transform=ax.transAxes,
+                    fontsize=30, ha='left', va='center', 
+                    bbox=dict(facecolor='white',edgecolor='none', alpha=1))
             
             plt.savefig(f'{outputDir}/kinfit_dxy{m}.{file_extension}', dpi=400, bbox_inches='tight')
+            plt.close()
+            
             with open(f'{outputDir}/kinfit_dxy{m}.pickle', "wb") as file:
                 pickle.dump(dxy, file)            
+        for ctau in lifetimes:
+            ana='wmn2g'
+            analysis=getAnalysis(sampleDir,prod,ana,background_method='fakerate',era=era,signals=signals,lifetimes=lifetimes)
+            stack=mplhep_plotter(com=center_of_mass[era],data=False,lumi=None,label=analysis_status)
+            stack.stack=False
             
+            for m in masses:
+                analysis['signal'][m][ctau]['sum'].define("deltaLXY",f"best_2g_dxy_m{m}-genLxy(GenPart_vx[GenPart_isSignal], GenPart_vy[GenPart_isSignal])")
+                stack.add_plotter(analysis['signal'][m][ctau]['sum'],label=rf"$m_{{\Phi}}= {m}\ \mathrm{{GeV}}$",typeP='signal',error_mode='w2',color=signal_colors_m[m])                
+
+            dlxy,ax=stack.hist1d("deltaLXY",cuts[ana][m]['sr'],model=('a','a',30,-15,15),alpha=1,xlabel=r"$\Delta L_{xy}$ ",xunits="cm",show=False,legend_loc='upper left',signalstep=True,top_space=0.3)
+
+            ax.text(0.05, 0.65, rf"$c\tau={ctau}\ \mathrm{{mm}}$" , transform=ax.transAxes,
+                     fontsize=30, ha='left', va='center', 
+                     bbox=dict(facecolor='white',edgecolor='none', alpha=1))
+
+            plt.savefig(f'{outputDir}/kinfit_deltaLXY_ct{ctau}.{file_extension}', dpi=400, bbox_inches='tight')
+            plt.close()
+
+            with open(f'{outputDir}/kinfit_deltaLXY_ct{ctau}.pickle', "wb") as file:
+                pickle.dump(dlxy, file)
+            mgg,ax=stack.hist1d(f"best_2g_raw_mass_m{m}",cuts[ana][m]['sr'],model=('a','a',100,8,m+2),alpha=1,xlabel=r"$m_{\gamma\gamma}$",xunits="GeV",show=False,legend_loc='upper left',signalstep=True,top_space=0.3)
+
+            ax.text(0.05, 0.65, rf"$c\tau={ctau}\ \mathrm{{mm}}$" , transform=ax.transAxes,
+                     fontsize=30, ha='left', va='center', 
+                     bbox=dict(facecolor='white',edgecolor='none', alpha=1))
+
+            with open(f'{outputDir}/kinfit_mass_ct{ctau}.pickle', "wb") as file:
+                pickle.dump(mgg, file)            
+            plt.savefig(f'{outputDir}/kinfit_mass_ct{ctau}.{file_extension}', dpi=400, bbox_inches='tight')
+            dxy,ax=stack.hist1d(f"best_2g_dxy_m{m}",cuts[ana][m]['sr'],model=('a','a',90,-10,80),alpha=1,xlabel=r"$d_{xy}$",xunits="cm",show=False,signalstep=True,top_space=0.3)
+            ax.text(0.75, 0.65, rf"$c\tau={ctau}\ \mathrm{{mm}}$" , transform=ax.transAxes,
+                    fontsize=30, ha='left', va='center', 
+                    bbox=dict(facecolor='white',edgecolor='none', alpha=1))
+            
+            plt.savefig(f'{outputDir}/kinfit_dxy_ct{ctau}.{file_extension}', dpi=400, bbox_inches='tight')
+            plt.close()
+            
+            with open(f'{outputDir}/kinfit_dxy_ct{ctau}.pickle', "wb") as file:
+                pickle.dump(dxy, file)            
+
+    #ID vs LXY            
+    if action=="id_vs_lxy":
+        print("To run this you need to merge all W signals together to a file and pint the code to it.")
+        rdf=ROOT.RDataFrame('wmn2g','/tank/ddp/DDP/allW_signals.root')
+        rdf=rdf.Define("genLXY","genLxy(GenPart_vx[GenPart_isSignal], GenPart_vy[GenPart_isSignal])")
+        rdf=rdf.Filter(cuts['wmn2g'][20]['precr'])
+        denom=rdf.Histo1D(("denom","denom",20,0.,100.),"genLXY")
+        rdf2=rdf.Filter(cuts['wmn2g'][20]['presr'])        
+        num=rdf2.Histo1D(("denom","denom",20,0.,100.),"genLXY")
+        g=ROOT.TGraphAsymmErrors()
+        g.Divide(num.GetValue(),denom.GetValue())
+        f=ROOT.TFile("effvslxy.root","RECREATE")
+        f.cd()
+        g.Write("eff")
+        denom.Write("denom")
+        num.Write("num")
+        f.Close()
+        
+
+
+                
     #ACTION: Electron mis-id  plots
     if action=="electron_misID_plots":
         for m in masses:
             ana='wen2g'
-            analysis=getAnalysis(sampleDir,prod,ana,background_method='fakerate',era=era,signals=signals,lifetimes=lifetimes)
+            analysis=getAnalysis(sampleDir,prod,ana,background_method='fakerate',era=era,signals=['WH'],lifetimes=lifetimes)
             stack=mplhep_plotter(com=center_of_mass[era],data=False,lumi=None)
             stack.stack=False
 
             for ctau in lifetimes:
                 stack.add_plotter(analysis['signal'][m][ctau]['sum'],label=r'$c\tau=$'+f"{ctau} mm",typeP='signal',error_mode='w2',color=signal_colors[ctau])                
-            stack.add_plotter(analysis['wjets'],label='W+jets',typeP='background',error_mode='w2')
             stack.add_plotter(analysis['zjets'],label='Z+jets',typeP='background',error_mode='w2')
+            stack.add_plotter(analysis['wjets'],label='W+jets',typeP='background',error_mode='w2')
+            
             stack.add_plotter(analysis['tt'],label=r'$t\bar{t}$+jets',typeP='background',error_mode='w2')
             cutsSpecial='&&'.join([cuts['W']['ELE'],
                             cuts['pt'][m],
@@ -734,19 +837,40 @@ def runAction(sampleDir,prod,action='fakerate_closure',masses=masses,outputDir='
 #                            cuts['misID']['W']['ELE'][m],
                             f"((Photon_passCutBasedID[best_2g_idx1_m{m}]+Photon_passCutBasedID[best_2g_idx2_m{m}])==2)"])
             
-            stack.hist1d(f"best_2g_misID1_m{m}",cutsSpecial,model=('a','a',50,0,200),alpha=0.25,xlabel=r"$m_{\text{tag1}}$ ",xunits="GeV",show=False,legend_loc='upper left')
+            fig,ax=stack.hist1d(f"best_2g_misID1_m{m}",cutsSpecial,model=('a','a',50,0,200),alpha=0.25,xlabel=r"$m_{\text{tag1}}$ ",xunits="GeV",show=False,legend_loc='upper left')
+            ax.text(0.05, 0.55, rf"$m_\Phi={m}\ \mathrm{{GeV}}$" , transform=ax.transAxes,
+                    fontsize=20, ha='left', va='center', 
+                    bbox=dict(facecolor='white',edgecolor='none', alpha=0.5))
+            
             plt.savefig(f'{outputDir}/electron_misID_tag1_m{m}.{file_extension}', dpi=400, bbox_inches='tight')
-            stack.hist1d(f"best_2g_misID2_m{m}",cutsSpecial,model=('a','a',50,0,200),alpha=0.25,xlabel=r"$m_{\text{tag2}}$ ",xunits="GeV",show=False,legend_loc='upper left')
+            with open(f'{outputDir}/electron_misID_tag1_m{m}.pickle', "wb") as file:
+                pickle.dump(fig, file)            
+
+            
+            fig,ax=stack.hist1d(f"best_2g_misID2_m{m}",cutsSpecial,model=('a','a',50,0,200),alpha=0.25,xlabel=r"$m_{\text{tag2}}$ ",xunits="GeV",show=False,legend_loc='upper left')
+            ax.text(0.05, 0.55, rf"$m_\Phi={m}\ \mathrm{{GeV}}$" , transform=ax.transAxes,
+                    fontsize=20, ha='left', va='center', 
+                    bbox=dict(facecolor='white',edgecolor='none', alpha=0.5))
+            
             plt.savefig(f'{outputDir}/electron_misID_tag2_m{m}.{file_extension}', dpi=400, bbox_inches='tight')
-            stack.hist1d(f"best_2g_misID3_m{m}",cutsSpecial,model=('a','a',50,0,200),alpha=0.25,xlabel=r"$m_{\text{tag3}}$ ",xunits="GeV",show=False,legend_loc='upper left')
+            with open(f'{outputDir}/electron_misID_tag2_m{m}.pickle', "wb") as file:
+                pickle.dump(fig, file)            
+
+            fig,ax=stack.hist1d(f"best_2g_misID3_m{m}",cutsSpecial,model=('a','a',50,0,200),alpha=0.25,xlabel=r"$m_{\text{tag3}}$ ",xunits="GeV",show=False,legend_loc='upper left')
+            ax.text(0.05, 0.55, rf"$m_\Phi={m}\ \mathrm{{GeV}}$" , transform=ax.transAxes,
+                    fontsize=20, ha='left', va='center', 
+                    bbox=dict(facecolor='white',edgecolor='none', alpha=0.5))
+            
             plt.savefig(f'{outputDir}/electron_misID_tag3_m{m}.{file_extension}', dpi=400, bbox_inches='tight')               
+            with open(f'{outputDir}/electron_misID_tag3_m{m}.pickle', "wb") as file:
+                pickle.dump(fig, file)            
 
         
     #ACTION: Low pt Photon Background
     if action=="lowpt_photon_background":
         for m in masses:
             ana='wmn2g'
-            analysis=getAnalysis(sampleDir,prod,ana,background_method='fakerate',era=era,signals=signals,lifetimes=lifetimes)
+            analysis=getAnalysis(sampleDir,prod,ana,background_method='fakerate',era=era,signals=['WH'],lifetimes=lifetimes)
             stack=mplhep_plotter(com=center_of_mass[era],data=False,lumi=None)
             stack.stack=False
 
@@ -763,10 +887,23 @@ def runAction(sampleDir,prod,action='fakerate_closure',masses=masses,outputDir='
             stack.define("pt1",f"Photon_pt[best_2g_idx1_m{m}]")
             stack.define("pt2",f"Photon_pt[best_2g_idx2_m{m}]")
             
-            stack.hist1d("pt1",cutsSpecial,model=('a','a',20,20,100),alpha=0.25,xlabel=r"$pt_{\gamma_1}$ ",xunits="GeV",show=False,legend_loc='upper left')
+            fig,ax=stack.hist1d("pt1",cutsSpecial,model=('a','a',20,20,100),alpha=0.5,xlabel=r"$pt_{\gamma_1}$ ",xunits="GeV",show=False,legend_loc='upper right',signalstep=True)
+            ax.text(0.75, 0.55, rf"$m_\Phi={m}\ \mathrm{{GeV}}$" , transform=ax.transAxes,
+                    fontsize=20, ha='left', va='center', 
+                    bbox=dict(facecolor='white',edgecolor='none', alpha=0.5))
+
             plt.savefig(f'{outputDir}/lowpt_photon_background1_m{m}.{file_extension}', dpi=400, bbox_inches='tight')
-            stack.hist1d("pt2",cutsSpecial,model=('a','a',20,20,100),alpha=0.25,xlabel=r"$pt_{\gamma_2}$ ",xunits="GeV",show=False,legend_loc='upper left')
+            with open(f'{outputDir}/lowpt_photon_background1_m{m}.pickle', "wb") as file:
+                pickle.dump(fig, file)            
+            
+            fig,ax=stack.hist1d("pt2",cutsSpecial,model=('a','a',20,20,100),alpha=0.5,xlabel=r"$pt_{\gamma_2}$ ",xunits="GeV",show=False,legend_loc='upper right',signalstep=True)
+            ax.text(0.75, 0.55, rf"$m_\Phi={m}\ \mathrm{{GeV}}$" , transform=ax.transAxes,
+                    fontsize=20, ha='left', va='center', 
+                    bbox=dict(facecolor='white',edgecolor='none', alpha=0.5))
+            
             plt.savefig(f'{outputDir}/lowpt_photon_background2_m{m}.{file_extension}', dpi=400, bbox_inches='tight')
+            with open(f'{outputDir}/lowpt_photon_background2_m{m}.pickle', "wb") as file:
+                pickle.dump(fig, file)            
 
         
 
@@ -794,36 +931,112 @@ def runAction(sampleDir,prod,action='fakerate_closure',masses=masses,outputDir='
     #ACTION: fake rate MC Closure
     elif action=="fakerate_closure":
         print("Running MC Closure of Fake rates")
-            
-        for ana in analyses:
-            if ana in ['wmn2g','zmm2g']:
-                lepton='MU'
-            else:
-                lepton='ELE'
-            #create a plotter that has all MC as data
-            analysis=getAnalysis(sampleDir,prod,ana,background_method='fakerate',era=era,signals=[],lifetimes=[])
-            plotters=[analysis['wjets'],analysis['zjets'],analysis['tt']]
-            #create a fake rate MC plotter
-            for m in masses:
+        myTexts = {
+            'wmn2g':r'$W\rightarrow \mu \nu$',
+            'wen2g':r'$W\rightarrow e \nu$',
+            'zmm2g':r'$Z\rightarrow \mu \mu$',
+            'zee2g':r'$Z\rightarrow e e$',
+
+            }
+        mh.style.use('CMS')
+
+        
+        for m in masses:    
+            #create the common axes            
+            fig,ax = plt.subplots(nrows=2,ncols=len(analyses),sharex="col",sharey="row",figsize=(25,12),gridspec_kw={'height_ratios':[5,1],
+                                                                                                                    'width_ratios':list(np.full(len(analyses),1))})
+            plt.subplots_adjust(wspace=0,hspace=0)        
+        
+            for i,ana in enumerate(analyses):
+
+                if ana in ['wmn2g','zmm2g']:
+                    lepton='MU'
+                else:
+                    lepton='ELE'
+                #create a plotter that has all MC as data
+                analysis=getAnalysis(sampleDir,prod,ana,background_method='fakerate',era=era,signals=[],lifetimes=[])
+                plotters=[analysis['wjets'],analysis['zjets'],analysis['tt']]
+                #create a fake rate MC plotter
                 print(f"Running {ana} m={m} GeV") 
                 bkg=fakerate_plotter(cuts[ana][m]['sr'],
-                                            cuts[ana][m]['cr'],
-                                            plotters,
-                                            'fakeRate_MC',
-                                            f'fake_rate(Photon_pt[best_2g_idx1_m{m}],Photon_eta[best_2g_idx1_m{m}],Photon_pt[best_2g_idx2_m{m}],Photon_eta[best_2g_idx2_m{m}],(Photon_cutBased[best_2g_idx1_m{m}]>0),(Photon_cutBased[best_2g_idx2_m{m}]>0),fake_rate_MC_{lepton}_vals,fake_rate_MC_{lepton}_xbins,fake_rate_MC_{lepton}_ybins)')                                                  
+                                     cuts[ana][m]['cr'],
+                                     plotters,
+                                     'fakeRate_MC',
+                                     f'fake_rate(Photon_pt[best_2g_idx1_m{m}],Photon_eta[best_2g_idx1_m{m}],Photon_pt[best_2g_idx2_m{m}],Photon_eta[best_2g_idx2_m{m}],(Photon_cutBased[best_2g_idx1_m{m}]>0),(Photon_cutBased[best_2g_idx2_m{m}]>0),fake_rate_MC_{lepton}_vals,fake_rate_MC_{lepton}_xbins,fake_rate_MC_{lepton}_ybins)')                                                  
                 #make a stack plotter and plot the stack
                 stack=mplhep_plotter(com=center_of_mass[era],data=False,lumi=None)
                 stack.add_plotter(bkg,label='Fake rate estimate',typeP='data',error_mode='poisson_bootstrap')               
                 stack.add_plotter(analysis['wjets'],label='W+jets',typeP='background',error_mode='w2')
                 stack.add_plotter(analysis['zjets'],label='DY+jets',typeP='background',error_mode='w2')
                 stack.add_plotter(analysis['tt'],label=r'$t\bar{t}$+jets',typeP='background',error_mode='w2')
+                stack.hist1d(f"best_2g_dxy_m{m}",cuts[ana][m]['sr'],('a','a',len(binning1d[ana])-1,binning1d[ana]),alpha=1.0,xlabel=r"$L_{xy}$",xunits="cm",legend_loc='upper right',show=False,ax=ax[0,i],dndx=False)
+                stack.pull1d(f"best_2g_dxy_m{m}",cuts[ana][m]['sr'],('a','a',len(binning1d[ana])-1,binning1d[ana]),alpha=1.0,xlabel=r"$L_{xy}$",xunits="cm",legend_loc='upper right',show=False,ax=ax[1,i])
+                
+                analysis=None
+                ax[0,i].text(0.5, 0.95, myTexts[ana] , transform=ax[0,i].transAxes,
+                             fontsize=20, ha='center', va='center', 
+                             bbox=dict(facecolor='white',edgecolor='none', alpha=0.5))
+                ax[0,i].margins(x=0,y=0)
+                ax[1,i].margins(x=0,y=0)
+                
+                if i==(len(analyses)-1):
+                    ax[0,i].legend(loc='upper right')
+                ax[0,i].tick_params(axis='both', which='major', labelsize=18)
+                ax[1,i].tick_params(axis='both', which='major', labelsize=18)
+                    #then stack backgrounds and then draw band
+            lo, hi = ax[0,0].get_ylim()
+            ax[0,0].set_ylim(lo, hi + (hi - lo) * 0.5)
+            ax[1,0].set_ylim(-3,3)
+            ax[0,-1].text(0.75, 0.65, rf"$m_\Phi={m}\ \mathrm{{GeV}}$" , transform=ax[0,-1].transAxes,
+                          fontsize=20, ha='left', va='center', 
+                          bbox=dict(facecolor='white',edgecolor='none', alpha=0.5))
+
+                    #Labels
+            mh.cms.label(None,data=False,rlabel="", ax=ax[0,0], loc=0)
+            mh.cms.label(None,exp='',data=True,llabel="", ax=ax[0,-1], loc=0,lumi=lumifb[era],com=center_of_mass[era])
+            ax[1,-1].set_xlabel(r"$L_{xy}$ (cm)",fontsize=20)
+            ax[0,0].set_ylabel("Events",fontsize=20)
+            ax[1,0].set_ylabel(r"$(\mathrm{Data}-\mathrm{Pred.})/\sigma$",fontsize=20)
+            fig.align_ylabels([ax[0,0], ax[1,0]])
+            plt.savefig(f'{outputDir}/fakerate_closure_{m}_{era}.{file_extension}', dpi=400, bbox_inches='tight')
+            with open(f'{outputDir}/fakerate_closure_{m}_{era}.pickle', "wb") as file:
+                pickle.dump(fig, file)
+
+
+
+
+        
+#        print("Running MC Closure of Fake rates")
+#            
+#        for ana in analyses:
+#            if ana in ['wmn2g','zmm2g']:
+#                lepton='MU'
+#            else:
+#                lepton='ELE'
+            #create a plotter that has all MC as data
+#            analysis=getAnalysis(sampleDir,prod,ana,background_method='fakerate',era=era,signals=[],lifetimes=[])
+#            plotters=[analysis['wjets'],analysis['zjets'],analysis['tt']]
+#            #create a fake rate MC plotter
+#            for m in masses:
+#                print(f"Running {ana} m={m} GeV") 
+#                bkg=fakerate_plotter(cuts[ana][m]['sr'],
+#                                            cuts[ana][m]['cr'],
+#                                            plotters,
+#                                            'fakeRate_MC',
+#                                            f'fake_rate(Photon_pt[best_2g_idx1_m{m}],Photon_eta[best_2g_idx1_m{m}],Photon_pt[best_2g_idx2_m{m}],Photon_eta[best_2g_idx2_m{m}],(Photon_cutBased[best_2g_idx1_m{m}]>0)#,(Photon_cutBased[best_2g_idx2_m{m}]>0),fake_rate_MC_{lepton}_vals,fake_rate_MC_{lepton}_xbins,fake_rate_MC_{lepton}_ybins)')                                                  
+                #make a stack plotter and plot the stack
+#                stack=mplhep_plotter(com=center_of_mass[era],data=False,lumi=None)
+#                stack.add_plotter(bkg,label='Fake rate estimate',typeP='data',error_mode='poisson_bootstrap')               
+#                stack.add_plotter(analysis['wjets'],label='W+jets',typeP='background',error_mode='w2')
+#                stack.add_plotter(analysis['zjets'],label='DY+jets',typeP='background',error_mode='w2')
+#                stack.add_plotter(analysis['tt'],label=r'$t\bar{t}$+jets',typeP='background',error_mode='w2')
                 #draw a plot
-                stack.unrolledCustom(f"best_2g_raw_mass_m{m}",f"best_2g_dxy_m{m}",cuts[ana][m]['sr'],binning[ana][m],alpha=1.0,xlabel=r"$d_{xy}$",xunits="cm",show=False,ylabel=r'$m_{\gamma\gamma}$',yunits='GeV',textx=0.7)
-                plt.savefig(f'{outputDir}/fakerate_closure_{ana}_{m}.{file_extension}', dpi=400, bbox_inches='tight')
-                stack=None
-                fr_plotter=None
-            analysis=None
-            plotters=None
+#                stack.unrolledCustom(f"best_2g_raw_mass_m{m}",f"best_2g_dxy_m{m}",cuts[ana][m]['sr'],binning[ana][m],alpha=1.0,xlabel=r"$d_{xy}$",xunits="cm",show=False,ylabel=r'$m_{\gamma\gamma}$',yunits='GeV',textx=0.7)
+#                plt.savefig(f'{outputDir}/fakerate_closure_{ana}_{m}.{file_extension}', dpi=400, bbox_inches='tight')
+#                stack=None
+#                fr_plotter=None
+#            analysis=None
+#            plotters=None
                 
 
 
@@ -894,27 +1107,71 @@ def runAction(sampleDir,prod,action='fakerate_closure',masses=masses,outputDir='
             'wen2g':['WH','ttH'],
             'zmm2g':['ZH','ggZH'],
             'zee2g':['ZH','ggZH']}
+        myTexts = {
+            'wmn2g':r'$W\rightarrow \mu \nu$',
+            'wen2g':r'$W\rightarrow e \nu$',
+            'zmm2g':r'$Z\rightarrow \mu \mu$',
+            'zee2g':r'$Z\rightarrow e e$',
 
-        print("Make signal Contamination plots in control regions")
-        for ana in analyses:
-            analysis=getAnalysis(sampleDir,prod,ana,background_method='fakerate',era=era,brphiphi=brphiphi,signals=mySignals[ana],lifetimes=lifetimes)
-            for m in masses:
-                stack=mplhep_plotter(label=analysis_status,data=True,lumi=lumifb[era],com=center_of_mass[era])
-                for ctau in lifetimes:
-                    stack.add_plotter(analysis['signal'][m][ctau]['sum'],label=r'$m_{\phi}$='+f"{m} GeV,"+r" $c\tau =$ "+f"{ctau} mm",typeP='signal',error_mode='w2',color=signal_colors[ctau])
+            }
+        mh.style.use('CMS')
+
+        
+        for m in masses:    
+            #create the common axes            
+            fig,ax = plt.subplots(nrows=1,ncols=len(analyses),sharex="col",sharey="row",figsize=(25,10))
+            plt.subplots_adjust(wspace=0)        
+        
+            for i,ana in enumerate(analyses):
+                #create a plotter that has all MC as data
+                analysis=getAnalysis(sampleDir,prod,ana,background_method='',era=era,brphiphi=brphiphi,signals=mySignals[ana],lifetimes=lifetimes,brgg=0.5)
+                print(f"Running {i} {ana} m={m} GeV")
+                stack=mplhep_plotter(label=analysis_status,data=True,lumi=lumifb[era],com=center_of_mass[era],capsize=0)
                 stack.add_plotter(analysis['data'],label="Data",typeP='data',error_mode='poisson')               
-                stack.hist1d(f"best_2g_dxy_m{m}",cuts[ana][m]['cr'],('a','a',len(binning1d[ana])-1,binning1d[ana]),alpha=1.0,xlabel=r"$L_{xy}$",xunits="cm",legend_loc='upper right',show=False)
-                plt.savefig(f'{outputDir}/signalContam_1D_{ana}_{m}_{era}.{file_extension}', dpi=400, bbox_inches='tight')
-                stack.unrolledCustom(f"best_2g_raw_mass_m{m}",f"best_2g_dxy_m{m}",cuts[ana][m]['cr'],binning[ana][m],alpha=1.0,xlabel=r"$d_{xy}$",xunits="cm",ylabel=r'$m_{\gamma\gamma}$',yunits='GeV',textx=0.5,texty=0.95,show=False,legend_ax=0,legend_loc='upper left',legend_bbox=(0.01,0.9))
-                plt.savefig(f'{outputDir}/signalContam_{ana}_{m}_{era}.{file_extension}', dpi=400, bbox_inches='tight')
-                
-            
-                
-                print(f"Running {ana} m={m} GeV")
+                for ctau in lifetimes:
+                    stack.add_plotter(analysis['signal'][m][ctau]['sum'],label=r" $H \rightarrow\Phi\Phi,  c\tau =$ "+f"{ctau} mm",typeP='signal',error_mode='w2',color=signal_colors[ctau])
                 #draw a plot
-
+                stack.hist1d(f"best_2g_dxy_m{m}",cuts[ana][m]['cr'],('a','a',len(binning1d[ana])-1,binning1d[ana]),alpha=1.0,xlabel=r"$L_{xy}$",xunits="cm",legend_loc='upper right',show=False,ax=ax[i],dndx=False)
                 
-    
+                analysis=None
+                ax[i].text(0.5, 0.95, myTexts[ana] , transform=ax[i].transAxes,
+                           fontsize=20, ha='center', va='center', 
+                           bbox=dict(facecolor='white',edgecolor='none', alpha=0.5))
+                ax[i].margins(x=0,y=0)
+                if i==(len(analyses)-1):
+                    ax[i].legend(loc='upper left', bbox_to_anchor=(0.01,0.9))
+                ax[i].tick_params(axis='both', which='major', labelsize=18)
+            #then stack backgrounds and then draw band
+            lo, hi = ax[0].get_ylim()
+            ax[0].set_ylim(lo, hi + (hi - lo) * 0.25)
+
+            ax[-1].text(0.1, 0.55, rf"$m_\Phi={m}\ \mathrm{{GeV}}$" , transform=ax[-1].transAxes,
+                           fontsize=20, ha='left', va='center', 
+                           bbox=dict(facecolor='white',edgecolor='none', alpha=0.5))
+
+            ax[-1].text(0.1, 0.5, r"$\mathcal{B} (H \rightarrow \Phi\Phi)=0.01$" , transform=ax[-1].transAxes,
+                           fontsize=20, ha='left', va='center', 
+                           bbox=dict(facecolor='white',edgecolor='none', alpha=0.5))
+            ax[-1].text(0.1, 0.45, r"$\mathcal{B}(\Phi \rightarrow \gamma\gamma)=0.5$" , transform=ax[-1].transAxes,
+                           fontsize=20, ha='left', va='center', 
+                           bbox=dict(facecolor='white',edgecolor='none', alpha=0.5))
+            ax[-1].text(0.1, 0.4, "Bkg. extrapolation region" , transform=ax[-1].transAxes,
+                           fontsize=20, ha='left', va='center', 
+                           bbox=dict(facecolor='white',edgecolor='none', alpha=0.5))
+            
+            #Labels
+            mh.cms.label(analysis_status,data=True,rlabel="", ax=ax[0], loc=0)
+            mh.cms.label(None,exp='',data=True,llabel="", ax=ax[-1], loc=0,lumi=lumifb[era],com=center_of_mass[era])
+            ax[-1].set_xlabel(r"$L_{xy}$ (cm)",fontsize=20)
+            ax[0].set_ylabel("Events",fontsize=20)
+
+            plt.savefig(f'{outputDir}/signalContam_1D_{m}_{era}.{file_extension}', dpi=400, bbox_inches='tight')
+            with open(f'{outputDir}/signalContam_1D_{m}_{era}.pickle', "wb") as file:
+                pickle.dump(fig, file)
+
+
+
+
     #ACTION: step by step              
     elif action=="step_by_step":
         mySignals={
@@ -1110,6 +1367,161 @@ def runAction(sampleDir,prod,action='fakerate_closure',masses=masses,outputDir='
             
 
 
+    elif action=="background_plots_negativelxy_x2":
+        print("Make 1D final Plots")
+        myTexts = {
+            'wmn2g':r'$W\rightarrow \mu \nu$',
+            'wen2g':r'$W\rightarrow e \nu$',
+            'zmm2g':r'$Z\rightarrow \mu \mu$',
+            'zee2g':r'$Z\rightarrow e e$',
+
+            }
+        for m in masses:
+            
+            fig,ax = plt.subplots(nrows=2,ncols=len(analyses),sharex="col",sharey="row",figsize=(20,12),gridspec_kw={'height_ratios':[5,1],
+                                                                                                                    'width_ratios':list(np.full(len(analyses),1))})
+            plt.subplots_adjust(wspace=0,hspace=0)        
+        
+            for i,ana in enumerate(analyses):
+
+                #create a plotter that has all MC as data
+                analysis=getAnalysis(sampleDir,prod,ana,background_method='fakerate',era=era,brphiphi=0.0,signals=[],lifetimes=[],brgg=0.0)
+                print(f"Running {i} {ana} m={m} GeV")
+                stack=mplhep_plotter(label=analysis_status,data=True,lumi=lumifb[era],com=center_of_mass[era],capsize=0)
+                stack.add_plotter(analysis['bkg'][m],label='Background',typeP='background',error_mode='poisson_bootstrap')
+                stack.add_plotter(analysis['data'],label="Data",typeP='data',error_mode='poisson')               
+                
+                #draw a plot
+                stack.hist1d(f"best_2g_dxy_m{m}",cuts[ana][m]['presr']+f"*(best_2g_raw_mass_m{m}>62.5)",('a','a',len(binning1d_sb[ana])-1,binning1d_sb[ana]),alpha=1.0,xlabel=r"$L_{xy}$",xunits="cm",legend_loc='upper right',show=False,ax=ax[0,i],dndx=False)
+                stack.pull1d(f"best_2g_dxy_m{m}",cuts[ana][m]['presr']+f"*(best_2g_raw_mass_m{m}>62.5)",('a','a',len(binning1d_sb[ana])-1,binning1d_sb[ana]),alpha=1.0,xlabel=r"$L_{xy}$",xunits="cm",legend_loc='upper right',show=False,ax=ax[1,i])
+
+
+                analysis=None
+                ax[0,i].text(0.5, 0.95, myTexts[ana] , transform=ax[0,i].transAxes,
+                           fontsize=35, ha='center', va='center', 
+                           bbox=dict(facecolor='white',edgecolor='none', alpha=0.5))
+                ax[0,i].margins(x=0,y=0)
+                ax[1,i].margins(x=0,y=0)
+                
+                if i==(len(analyses)-1):
+                    handles, labels = ax[0,-1].get_legend_handles_labels()
+                    hl_dict = dict(zip(labels, handles))
+                    ordered_handles=[hl_dict['Data']]
+                    ordered_labels=['Data']
+                    for l,h in hl_dict.items():
+                        if l!='Data':
+                            ordered_labels.append(l)
+                            ordered_handles.append(h)
+                    ax[0,-1].legend(ordered_handles,ordered_labels,loc='upper left', bbox_to_anchor=(0.1,0.9),fontsize=35)
+                ax[0,i].tick_params(axis='both', which='major', labelsize=27.5)
+                ax[1,i].tick_params(axis='both', which='major', labelsize=27.5)
+            #then stack backgrounds and then draw band
+            lo, hi = ax[0,0].get_ylim()
+            ax[0,0].set_ylim(lo, hi + (hi - lo) * (1.0 if 'wmn2g' in analyses else 2.0))
+            ax[1,0].set_ylim(-4,4)
+            ax[1,0].set_yticks([-2,0,2])
+
+
+
+            ax[0,0].text(0.45, 0.8, rf"$m_\Phi={m}\ \mathrm{{GeV}}$" , transform=ax[0,0].transAxes,
+                           fontsize=35, ha='left', va='center', 
+                           bbox=dict(facecolor='white',edgecolor='none', alpha=0.5))
+
+            #Labels
+            mh.cms.label(analysis_status,data=True,rlabel="", ax=ax[0,0], loc=0,fontsize=45)
+            mh.cms.label(None,exp='',data=True,llabel="", ax=ax[0,-1], loc=0,lumi=lumifb[era],com=center_of_mass[era],fontsize=35)
+            ax[1,-1].set_xlabel(r"$L_{xy}$ (cm)",fontsize=35)
+            ax[0,0].set_ylabel("Events / bin ",fontsize=35)
+#            ax[1,0].set_ylabel(r"$(\mathrm{Data}-\mathrm{Pred.})/\sigma$",fontsize=24)
+            ax[1,0].set_ylabel("Pull",fontsize=35,loc='center')
+            fig.align_ylabels([ax[0,0], ax[1,0]])
+            anastr = '_'.join(analyses)
+            plt.savefig(f'{outputDir}/sideband_lxy_1D_{m}_{era}_{anastr}.{file_extension}', dpi=400, bbox_inches='tight')
+            with open(f'{outputDir}/sideband_lxy_1D_{m}_{era}_{anastr}.pickle', "wb") as file:
+                pickle.dump(fig, file)
+
+                
+                
+        #ACTION: Final Plots 1D             
+    elif action=="final_mgg_plot":
+        brgg=0.5
+        print("Make 1D final Plots")
+        mySignals={
+            'wmn2g':['WH','ttH'],
+            'wen2g':['WH','ttH'],
+            'zmm2g':['ZH','ggZH'],
+            'zee2g':['ZH','ggZH']}
+        myTexts = {
+            'wmn2g':r'$W\rightarrow \mu \nu$',
+            'wen2g':r'$W\rightarrow e \nu$',
+            'zmm2g':r'$Z\rightarrow \mu \mu$',
+            'zee2g':r'$Z\rightarrow e e$',
+
+            }
+        mh.style.use('CMS')
+
+        
+        for m in masses:    
+        
+            #Create the invariant mass main plot
+            fig,ax = plt.subplots(nrows=2,ncols=len(analyses),sharex="col",sharey="row",figsize=(25,12),gridspec_kw={'height_ratios':[5,1],'width_ratios':list(np.full(len(analyses),1))})
+            plt.subplots_adjust(wspace=0,hspace=0)        
+        
+            for i,ana in enumerate(analyses):
+                analysis=getAnalysis(sampleDir,prod,ana,background_method='fakerate',era=era,brphiphi=brphiphi,signals=mySignals[ana],lifetimes=lifetimes,brgg=brgg)
+                print(f"Mega plot Running {i} {ana} mass={m} GeV")
+                stack=mplhep_plotter(label=analysis_status,data=True,lumi=lumifb[era],com=center_of_mass[era],capsize=0)
+                stack.add_plotter(analysis['bkg'][m],label='Background',typeP='background',error_mode='poisson_bootstrap')
+                for ctau in lifetimes:
+                    stack.add_plotter(analysis['signal'][m][ctau]['sum'],label=r" $H \rightarrow\Phi\Phi, c\tau =$ "+f"{ctau} mm",typeP='signal',error_mode='w2',color=signal_colors[ctau])
+                if blinded==False:
+                    stack.add_plotter(analysis['data'],label="Data",typeP='data',error_mode='poisson')               
+                #draw a plot
+                stack.hist1d(f"best_2g_raw_mass_m{m}",cuts[ana][m]['presr'],('a','a',len(binning_mass[ana])-1,binning_mass[ana]),alpha=1.0,xlabel=r"$m_{\gamma \gamma}$",xunits="GeV",legend_loc='upper right',show=False,ax=ax[0,i],dndx=True)
+                stack.pull1d(f"best_2g_raw_mass_m{m}",cuts[ana][m]['presr'],('a','a',len(binning_mass[ana])-1,binning_mass[ana]),alpha=1.0,xlabel=r"$m_{\gamma \gamma}$",xunits="GeV",legend_loc='upper right',show=False,ax=ax[1,i])
+                
+                analysis=None
+                ax[0,i].text(0.5, 0.95, myTexts[ana] , transform=ax[0,i].transAxes,
+                         fontsize=20, ha='center', va='center', 
+                         bbox=dict(facecolor='white',edgecolor='none', alpha=0.5))
+                ax[0,i].margins(x=0,y=0)
+                ax[1,i].margins(x=0,y=0)
+                
+                if i==(len(analyses)-1):
+                    ax[0,i].legend(loc='upper left', bbox_to_anchor=(0.01,0.9))
+                ax[0,i].tick_params(axis='both', which='major', labelsize=18)
+                ax[1,i].tick_params(axis='both', which='major', labelsize=18)
+            #then stack backgrounds and then draw band
+            lo, hi = ax[0,0].get_ylim()
+            ax[0,0].set_ylim(lo, hi + (hi - lo) * 0.25)
+            ax[1,0].set_ylim(-3,3)
+
+
+            ax[0,-1].text(0.1, 0.55, rf"$m_\Phi={m}\ \mathrm{{GeV}}$" , transform=ax[0,-1].transAxes,
+                           fontsize=20, ha='left', va='center', 
+                           bbox=dict(facecolor='white',edgecolor='none', alpha=0.5))
+
+            ax[0,-1].text(0.1, 0.5, r"$\mathcal{B} (H \rightarrow \Phi\Phi)=0.01$" , transform=ax[0,-1].transAxes,
+                          fontsize=20, ha='left', va='center', 
+                          bbox=dict(facecolor='white',edgecolor='none', alpha=0.5))
+            ax[0,-1].text(0.1, 0.45, r"$\mathcal{B}(\Phi \rightarrow \gamma\gamma)=0.5$" , transform=ax[0,-1].transAxes,
+                          fontsize=20, ha='left', va='center', 
+                          bbox=dict(facecolor='white',edgecolor='none', alpha=0.5))
+            
+            #Labels
+            mh.cms.label(analysis_status,data=True,rlabel="", ax=ax[0,0], loc=0)
+            mh.cms.label(None,exp='',data=True,llabel="", ax=ax[0,-1], loc=0,lumi=lumifb[era],com=center_of_mass[era])
+            ax[1,-1].set_xlabel(r"$m_{\gamma\gamma}$ (GeV)",fontsize=20)
+            ax[0,0].set_ylabel("< Events / cm >",fontsize=20)
+            ax[1,0].set_ylabel(r"$(\mathrm{Data}-\mathrm{Pred.})/\sigma$",fontsize=20)
+            fig.align_ylabels([ax[0,0], ax[1,0]])
+            if blinded:
+                plt.savefig(f'{outputDir}/blinded_prefit_mgg_{m}_{era}.{file_extension}', dpi=400, bbox_inches='tight')
+            else:
+                plt.savefig(f'{outputDir}/prefit_mgg_{m}_{era}.{file_extension}', dpi=400, bbox_inches='tight')
+                with open(f'{outputDir}/prefit_mgg_{m}_{era}.pickle', "wb") as file:
+                    pickle.dump(fig, file)
+
         #ACTION: Final Plots 1D             
     elif action=="final_plots_1d":
         brgg=0.5
@@ -1128,6 +1540,8 @@ def runAction(sampleDir,prod,action='fakerate_closure',masses=masses,outputDir='
             }
         mh.style.use('CMS')
 
+        
+        
         
         for m in masses:    
             #create the common axes
@@ -1194,6 +1608,101 @@ def runAction(sampleDir,prod,action='fakerate_closure',masses=masses,outputDir='
             with open(f'{outputDir}/prefit_1D_{m}_{era}.pickle', "wb") as file:
                 pickle.dump(fig, file)
 
+    elif action=="final_plots_1d_x2":
+        brgg=0.5
+        print("Make 1D final Plots")
+        mySignals={
+            'wmn2g':['WH','ttH'],
+            'wen2g':['WH','ttH'],
+            'zmm2g':['ZH','ggZH'],
+            'zee2g':['ZH','ggZH']}
+        myTexts = {
+            'wmn2g':r'$W\rightarrow \mu \nu$',
+            'wen2g':r'$W\rightarrow e \nu$',
+            'zmm2g':r'$Z\rightarrow \mu \mu$',
+            'zee2g':r'$Z\rightarrow e e$',
+
+            }
+        mh.style.use('CMS')
+
+        
+        
+        
+        for m in masses:    
+            #create the common axes
+            
+            fig,ax = plt.subplots(nrows=2,ncols=len(analyses),sharex="col",sharey="row",figsize=(20,12),gridspec_kw={'height_ratios':[5,1],
+                                                                                                                    'width_ratios':list(np.full(len(analyses),1))})
+            plt.subplots_adjust(wspace=0,hspace=0)        
+        
+            for i,ana in enumerate(analyses):
+
+                #create a plotter that has all MC as data
+                analysis=getAnalysis(sampleDir,prod,ana,background_method='fakerate',era=era,brphiphi=brphiphi,signals=mySignals[ana],lifetimes=lifetimes,brgg=brgg)
+                print(f"Running {i} {ana} m={m} GeV")
+                stack=mplhep_plotter(label=analysis_status,data=True,lumi=lumifb[era],com=center_of_mass[era],capsize=0)
+                stack.add_plotter(analysis['bkg'][m],label='Background',typeP='background',error_mode='poisson_bootstrap')
+                for ctau in lifetimes:
+                    stack.add_plotter(analysis['signal'][m][ctau]['sum'],label=r" $H \rightarrow\Phi\Phi,  c\tau =$ "+f"{ctau} mm",typeP='signal',error_mode='w2',color=signal_colors[ctau])
+                if blinded==False:
+                    stack.add_plotter(analysis['data'],label="Data",typeP='data',error_mode='poisson')               
+                #draw a plot
+                stack.hist1d(f"best_2g_dxy_m{m}",cuts[ana][m]['sr'],('a','a',len(binning1d[ana])-1,binning1d[ana]),alpha=1.0,xlabel=r"$L_{xy}$",xunits="cm",legend_loc='upper right',show=False,ax=ax[0,i],dndx=False)
+                stack.pull1d(f"best_2g_dxy_m{m}",cuts[ana][m]['sr'],('a','a',len(binning1d[ana])-1,binning1d[ana]),alpha=1.0,xlabel=r"$L_{xy}$",xunits="cm",legend_loc='upper right',show=False,ax=ax[1,i])
+                
+                analysis=None
+                ax[0,i].text(0.5, 0.95, myTexts[ana] , transform=ax[0,i].transAxes,
+                           fontsize=35, ha='center', va='center', 
+                           bbox=dict(facecolor='white',edgecolor='none', alpha=0.5))
+                ax[0,i].margins(x=0,y=0)
+                ax[1,i].margins(x=0,y=0)
+                
+                if i==(len(analyses)-1):
+                    handles, labels = ax[0,-1].get_legend_handles_labels()
+                    hl_dict = dict(zip(labels, handles))
+                    ordered_handles=[hl_dict['Data']]
+                    ordered_labels=['Data']
+                    for l,h in hl_dict.items():
+                        if l!='Data':
+                            ordered_labels.append(l)
+                            ordered_handles.append(h)
+                    ax[0,-1].legend(ordered_handles,ordered_labels,loc='upper left', bbox_to_anchor=(0.1,0.9),fontsize=35)
+                ax[0,i].tick_params(axis='both', which='major', labelsize=27.5)
+                ax[1,i].tick_params(axis='both', which='major', labelsize=27.5)
+            #then stack backgrounds and then draw band
+            lo, hi = ax[0,0].get_ylim()
+            ax[0,0].set_ylim(lo, hi + (hi - lo) * (1.0 if 'wmn2g' in analyses else 2.0))
+            ax[1,0].set_ylim(-4,4)
+            ax[1,0].set_yticks([-2,0,2])
+
+
+
+            ax[0,0].text(0.45, 0.8, rf"$m_\Phi={m}\ \mathrm{{GeV}}$" , transform=ax[0,0].transAxes,
+                           fontsize=35, ha='left', va='center', 
+                           bbox=dict(facecolor='white',edgecolor='none', alpha=0.5))
+
+            ax[0,0].text(0.45, 0.7, r"$\mathcal{B} (H \rightarrow \Phi\Phi)=0.01$" , transform=ax[0,0].transAxes,
+                           fontsize=35, ha='left', va='center', 
+                           bbox=dict(facecolor='white',edgecolor='none', alpha=0.5))
+            ax[0,0].text(0.45, 0.6, r"$\mathcal{B}(\Phi \rightarrow \gamma\gamma)=0.5$" , transform=ax[0,0].transAxes,
+                           fontsize=35, ha='left', va='center', 
+                           bbox=dict(facecolor='white',edgecolor='none', alpha=0.5))
+            
+            #Labels
+            mh.cms.label(analysis_status,data=True,rlabel="", ax=ax[0,0], loc=0,fontsize=45)
+            mh.cms.label(None,exp='',data=True,llabel="", ax=ax[0,-1], loc=0,lumi=lumifb[era],com=center_of_mass[era],fontsize=35)
+            ax[1,-1].set_xlabel(r"$L_{xy}$ (cm)",fontsize=35)
+            ax[0,0].set_ylabel("Events / bin ",fontsize=35)
+#            ax[1,0].set_ylabel(r"$(\mathrm{Data}-\mathrm{Pred.})/\sigma$",fontsize=24)
+            ax[1,0].set_ylabel("Pull",fontsize=35,loc='center')
+            fig.align_ylabels([ax[0,0], ax[1,0]])
+            anastr = '_'.join(analyses)
+            if blinded:
+                plt.savefig(f'{outputDir}/blinded_prefit_1D_{m}_{era}_{anastr}.{file_extension}', dpi=400, bbox_inches='tight')
+            else:
+                plt.savefig(f'{outputDir}/prefit_1D_{m}_{era}_{anastr}.{file_extension}', dpi=400, bbox_inches='tight')
+            with open(f'{outputDir}/prefit_1D_{m}_{era}_{anastr}.pickle', "wb") as file:
+                pickle.dump(fig, file)
             
     elif action=="check_files":
         mySignals={
@@ -1421,72 +1930,169 @@ def runAction(sampleDir,prod,action='fakerate_closure',masses=masses,outputDir='
     elif action=="limit_plots":
         band2sigma_color='#85d2fb'  
         band1sigma_color='#ffde9c'
+        brgg=[0.01,0.02,0.05,0.1,0.5,1]
+        combined=getLimitData(outputDir='VHresults',prefix='asymptotics',lifetimes=lifetimes,brgg=brgg)
+        for br in brgg:
+            print(f"Unrolled Brazilian flag as a function of m and lifetime for BR={br}")
         
-        combined=getLimitData(outputDir='VHresults',prefix='asymptotics',lifetimes=lifetimes,brgg=[0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1])
-
-        print("Unrolled Brazilian flag as a function of m and lifetime for BR=0.5")
+            plotter=limit_plotter(label=analysis_status,lumi=lumifb['Run2'],data=True,com=13,text=None,scale=brphiphi)
+            fig,ax = plt.subplots(1,len(lifetimes),sharey=True,figsize=(7.5*len(lifetimes),20))
+            plt.subplots_adjust(wspace=0)
         
-        plotter=limit_plotter(label="Preliminary",lumi=137.62,data=True,com=13,text=None,scale=brphiphi)
-        fig,ax = plt.subplots(1,len(lifetimes),sharey=True,figsize=(7.5*len(lifetimes),20))
-        plt.subplots_adjust(wspace=0)
-        
-        for i,ctau in enumerate(lifetimes):
-            xdim = int(i%3)
-            ydim = int(i/3)
+            for i,ctau in enumerate(lifetimes):
+                xdim = int(i%3)
+                ydim = int(i/3)
             
-            plotter.brazilian_flag(combined[((combined['ctau']==ctau)& (combined['br']==0.5))],'m',band2sigma_color=band2sigma_color,band1sigma_color=band1sigma_color,ax=ax[i],show=False,quiet=True)
+                plotter.brazilian_flag(combined[((combined['ctau']==ctau)& (combined['br']==br))],'m',band2sigma_color=band2sigma_color,band1sigma_color=band1sigma_color,ax=ax[i],show=False,quiet=True)
 
-#            plotter.expected_vs_observed(combined[((combined['ctau']==ctau)& (combined['br']==1.0))],'m',col='grey',ax=ax[i],show=False,quiet=True)
-#            plotter.expected_vs_observed(combined[((combined['ctau']==ctau)& (combined['br']==0.1))],'m',col='grey',ax=ax[i],show=False,quiet=True)
+                #            plotter.expected_vs_observed(combined[((combined['ctau']==ctau)& (combined['br']==1.0))],'m',col='grey',ax=ax[i],show=False,quiet=True)
+                #            plotter.expected_vs_observed(combined[((combined['ctau']==ctau)& (combined['br']==0.1))],'m',col='grey',ax=ax[i],show=False,quiet=True)
             
-            ax[i].text(0.5, 0.02,rf"$c\tau = {ctau}\ \mathrm{{mm}}$", transform=ax[i].transAxes,
-                       fontsize=40, ha='center', va='center', 
-                       bbox=dict(facecolor='white',edgecolor='none', alpha=0.5))
-            ax[i].tick_params(axis='both', which='major', labelsize=40)
-        ax[0].legend(loc='upper right',fontsize=40)
-        ax[-1].set_xlabel(r"$m_\Phi$ (GeV)",fontsize=40)
-        ax[0].set_ylabel(r'95% upper limit on $\mathcal{B}(H\rightarrow\Phi\Phi)$',fontsize=40)
-        mh.cms.label(analysis_status,data=True,rlabel="", ax=ax[0], loc=0,fontsize=60)
-        mh.cms.label(None,exp='',data=True,llabel="", ax=ax[-1], loc=0,lumi=lumifb['Run2'],com=13,fontsize=40)
-        ax[0].set_yscale('log')
-        ax[0].text(0.5,0.7,r'$\mathcal{B}(\Phi\rightarrow\gamma\gamma)=0.5$',transform=ax[0].transAxes,
+                ax[i].text(0.5, 0.02,rf"$c\tau = {ctau}\ \mathrm{{mm}}$", transform=ax[i].transAxes,
+                           fontsize=40, ha='center', va='center', 
+                           bbox=dict(facecolor='white',edgecolor='none', alpha=0.5))
+                ax[i].tick_params(axis='both', which='major', labelsize=40)
+            ax[0].legend(loc='upper right',fontsize=40)
+            ax[-1].set_xlabel(r"$m_\Phi$ (GeV)",fontsize=40)
+            ax[0].set_ylabel(r'95% upper limit on $\mathcal{B}(H\rightarrow\Phi\Phi)$',fontsize=40)
+            mh.cms.label(analysis_status,data=True,rlabel="", ax=ax[0], loc=0,fontsize=60)
+            mh.cms.label(None,exp='',data=True,llabel="", ax=ax[-1], loc=0,lumi=lumifb['Run2'],com=13,fontsize=40)
+            ax[0].set_yscale('log')
+            ax[0].set_ylim(0.0005,10)
+            ax[0].text(0.5,0.7,rf'$\mathcal{{B}}(\Phi\rightarrow\gamma\gamma)={br}$',transform=ax[0].transAxes,
                    fontsize=40, ha='center', va='center', 
                    bbox=dict(facecolor='white',edgecolor='none', alpha=0.5))
 
     
-        fig.savefig(f'{outputDir}/combined_limits_unrolled_m_ctau_br50.{file_extension}', dpi=400, bbox_inches='tight')
-        with open(f'{outputDir}/combined_limits_unrolled_m_ctau_br50.pickle', "wb") as file:
-            pickle.dump(fig, file)
-
-
-        print("Unrolled Brazilian flag as a function of BR->gg and mtau for ctau=100 ")
-        brToPlot=[0.1,0.3,0.5,0.7,0.9,1]
-        fig,ax = plt.subplots(1,len(brToPlot),sharey=True,figsize=(7.5*len(brToPlot),20))
-        plt.subplots_adjust(wspace=0)
+            fig.savefig(f'{outputDir}/combined_limits_unrolled_m_ctau_br{br}.{file_extension}', dpi=400, bbox_inches='tight')
+            with open(f'{outputDir}/combined_limits_unrolled_m_ctau_br{br}.pickle', "wb") as file:
+                pickle.dump(fig, file)
+            plt.close()
+        for ctau in lifetimes:
+            print(f"Unrolled Brazilian flag as a function of BR->gg and mtau for ctau={ctau} ")        
+            brToPlot=[0.01,0.02,0.05,0.1,0.5,1.0]
+            plotter=limit_plotter(label=analysis_status,lumi=lumifb['Run2'],data=True,com=13,text=None,scale=brphiphi)            
+            fig,ax = plt.subplots(1,len(brToPlot),sharey=True,figsize=(7.5*len(brToPlot),20))
+            plt.subplots_adjust(wspace=0)
         
-        for i,br in enumerate(brToPlot):
-            xdim = int(i%3)
-            ydim = int(i/3)
+            for i,br in enumerate(brToPlot):
+                xdim = int(i%3)
+                ydim = int(i/3)
             
-            plotter.brazilian_flag(combined[((combined['br']==br)& (combined['ctau']==100))],'m',band2sigma_color=band2sigma_color,band1sigma_color=band1sigma_color,ax=ax[i],show=False,quiet=True)
-            ax[i].text(0.5, 0.02,rf"$\mathcal{{B}}(\Phi\rightarrow\gamma\gamma)={br}$", transform=ax[i].transAxes,
+                plotter.brazilian_flag(combined[((combined['br']==br)& (combined['ctau']==ctau))],'m',band2sigma_color=band2sigma_color,band1sigma_color=band1sigma_color,ax=ax[i],show=False,quiet=True)
+                ax[i].text(0.5, 0.02,rf"$\mathcal{{B}}(\Phi\rightarrow\gamma\gamma)={br}$", transform=ax[i].transAxes,
                        fontsize=40, ha='center', va='center', 
                        bbox=dict(facecolor='white',edgecolor='none', alpha=0.5))
-            ax[i].tick_params(axis='both', which='major', labelsize=40)
-        ax[-1].legend(loc='upper right',fontsize=40)
-        ax[-1].set_xlabel(r"$m_\Phi$ (GeV)",fontsize=40)
-        ax[0].set_ylabel(r'95% upper limit on $\mathcal{B}(H\rightarrow\Phi\Phi)$',fontsize=40)
-        mh.cms.label(analysis_status,data=True,rlabel="", ax=ax[0], loc=0,fontsize=60)
-        mh.cms.label(None,exp='',data=True,llabel="", ax=ax[-1], loc=0,lumi=lumifb['Run2'],com=13,fontsize=40)
-        ax[0].set_yscale('log')
-        ax[-1].text(0.5,0.7,r'$c\tau = 100\ \mathrm{mm}$',transform=ax[-1].transAxes,
+                ax[i].tick_params(axis='both', which='major', labelsize=40)
+            ax[-1].legend(loc='upper right',fontsize=40)
+            ax[-1].set_xlabel(r"$m_\Phi$ (GeV)",fontsize=40)
+            ax[0].set_ylabel(r'95% upper limit on $\mathcal{B}(H\rightarrow\Phi\Phi)$',fontsize=40)
+            mh.cms.label(analysis_status,data=True,rlabel="", ax=ax[0], loc=0,fontsize=60)
+            mh.cms.label(None,exp='',data=True,llabel="", ax=ax[-1], loc=0,lumi=lumifb['Run2'],com=13,fontsize=40)
+            ax[0].set_yscale('log')
+            ax[0].set_ylim(0.0005,10)
+            
+            ax[-1].text(0.5,0.7,rf'$c\tau = {ctau}\ \mathrm{{mm}}$',transform=ax[-1].transAxes,
+                        fontsize=40, ha='center', va='center', 
+                        bbox=dict(facecolor='white',edgecolor='none', alpha=0.5))
+   
+            fig.savefig(f'{outputDir}/combined_limits_unrolled_m_br_ctau{ctau}.{file_extension}', dpi=400, bbox_inches='tight')
+            with open(f'{outputDir}/combined_limits_unrolled_m_br_ctau{ctau}.pickle', "wb") as file:
+                pickle.dump(fig, file)
+            plt.close()
+
+        #expected vs observed for each analysis         
+        brgg=[0.01,0.02,0.05,0.1,0.5,1]       
+        combined=getLimitData(outputDir='VHresults',prefix='asymptotics',lifetimes=lifetimes,brgg=brgg)       
+        wmn=getLimitData(outputDir='VHresults',prefix='asymptotics_wmn2g',lifetimes=lifetimes,brgg=brgg)
+        wen=getLimitData(outputDir='VHresults',prefix='asymptotics_wen2g',lifetimes=lifetimes,brgg=brgg)
+        zmm=getLimitData(outputDir='VHresults',prefix='asymptotics_zmm2g',lifetimes=lifetimes,brgg=brgg)
+        zee=getLimitData(outputDir='VHresults',prefix='asymptotics_zee2g',lifetimes=lifetimes,brgg=brgg)
+        for br in brgg:
+            print("Unrolled overlayed expected vs observed")
+        
+            plotter=limit_plotter(label="Preliminary",lumi=lumifb['Run2'],data=True,com=13,text=None,scale=brphiphi)
+            fig,ax = plt.subplots(1,len(lifetimes),sharey=True,figsize=(7.5*len(lifetimes),20))
+            plt.subplots_adjust(wspace=0)
+        
+            for i,ctau in enumerate(lifetimes):
+                xdim = int(i%3)
+                ydim = int(i/3)
+            
+                #plotter.brazilian_flag(combined[((combined['ctau']==ctau)& (combined['br']==br))],'m',band2sigma_color=band2sigma_color,band1sigma_color=band1sigma_color,ax=ax[i],show=False,quiet=True)
+                plotter.expected_vs_observed(wmn[((wmn['ctau']==ctau)& (wmn['br']==br))],'m',col='#e62d1a',ax=ax[i],show=False,quiet=True,label_obs = r"$W\rightarrow \mu\nu$")
+                plotter.expected_vs_observed(wen[((wen['ctau']==ctau)& (wen['br']==br))],'m',col='#282d65',ax=ax[i],show=False,quiet=True,label_obs = r"$W\rightarrow e\nu$")
+                plotter.expected_vs_observed(zmm[((zmm['ctau']==ctau)& (zmm['br']==br))],'m',col='#98c565',ax=ax[i],show=False,quiet=True,label_obs = r"$Z\rightarrow \mu\mu$")
+                plotter.expected_vs_observed(zee[((zee['ctau']==ctau)& (zee['br']==br))],'m',col='#636470',ax=ax[i],show=False,quiet=True,label_obs = r"$Z\rightarrow ee$")
+                plotter.expected_vs_observed(combined[((combined['ctau']==ctau)& (combined['br']==br))],'m',col='black',ax=ax[i],show=False,quiet=True,label_obs = "Combined",label_exp = "Expected")
+
+            
+                ax[i].text(0.5, 0.02,rf"$c\tau = {ctau}\ \mathrm{{mm}}$", transform=ax[i].transAxes,
+                           fontsize=40, ha='center', va='center', 
+                           bbox=dict(facecolor='white',edgecolor='none', alpha=0.5))
+                ax[i].tick_params(axis='both', which='major', labelsize=40)
+            ax[0].legend(loc='upper right',fontsize=40)
+            ax[-1].set_xlabel(r"$m_\Phi$ (GeV)",fontsize=40)
+            ax[0].set_ylabel(r'95% upper limit on $\mathcal{B}(H\rightarrow\Phi\Phi)$',fontsize=40)
+            mh.cms.label(analysis_status,data=True,rlabel="", ax=ax[0], loc=0,fontsize=60)
+            mh.cms.label(None,exp='',data=True,llabel="", ax=ax[-1], loc=0,lumi=lumifb['Run2'],com=13,fontsize=40)
+            ax[0].set_yscale('log')
+            ax[0].set_ylim(0.0005,10)
+            ax[0].text(0.5,0.55,rf'$\mathcal{{B}}(\Phi\rightarrow\gamma\gamma)={br}$',transform=ax[0].transAxes,
                    fontsize=40, ha='center', va='center', 
                    bbox=dict(facecolor='white',edgecolor='none', alpha=0.5))
-   
-        fig.savefig(f'{outputDir}/combined_limits_unrolled_m_br_ctau100.{file_extension}', dpi=400, bbox_inches='tight')
-        with open(f'{outputDir}/combined_limits_unrolled_m_br_ctau100.pickle', "wb") as file:
-            pickle.dump(fig, file)
 
-        
-        
+    
+            fig.savefig(f'{outputDir}/obs_vs_exp_limits_unrolled_m_ctau_br{br}.{file_extension}', dpi=400, bbox_inches='tight')
+            with open(f'{outputDir}/obs_vs_exp_limits_unrolled_m_ctau_br{br}.pickle', "wb") as file:
+                pickle.dump(fig, file)
+            plt.close()
                         
+
+
+        #expected vs observed for each year         
+        brgg=[0.01,0.02,0.05,0.1,0.5,1]
+        combined=getLimitData(outputDir='VHresults',prefix='asymptotics',lifetimes=lifetimes,brgg=brgg)       
+        era2016=getLimitData(outputDir='VHresults',prefix='asymptotics_2016',lifetimes=lifetimes,brgg=brgg)
+        era2017=getLimitData(outputDir='VHresults',prefix='asymptotics_2017',lifetimes=lifetimes,brgg=brgg)
+        era2018=getLimitData(outputDir='VHresults',prefix='asymptotics_2018',lifetimes=lifetimes,brgg=brgg)
+        for br in brgg:
+            print("Unrolled overlayed expected vs observed")
+        
+            plotter=limit_plotter(label="Preliminary",lumi=lumifb['Run2'],data=True,com=13,text=None,scale=brphiphi)
+            fig,ax = plt.subplots(1,len(lifetimes),sharey=True,figsize=(7.5*len(lifetimes),20))
+            plt.subplots_adjust(wspace=0)
+        
+            for i,ctau in enumerate(lifetimes):
+                xdim = int(i%3)
+                ydim = int(i/3)
+            
+
+                plotter.expected_vs_observed(era2016[((era2016['ctau']==ctau)& (era2016['br']==br))],'m',col='#e62d1a',ax=ax[i],show=False,quiet=True,label_obs = "2016")
+                plotter.expected_vs_observed(era2017[((era2017['ctau']==ctau)& (era2017['br']==br))],'m',col='#282d65',ax=ax[i],show=False,quiet=True,label_obs = "2017")
+                plotter.expected_vs_observed(era2018[((era2018['ctau']==ctau)& (era2018['br']==br))],'m',col='#98c565',ax=ax[i],show=False,quiet=True,label_obs = "2018")
+                plotter.expected_vs_observed(combined[((combined['ctau']==ctau)& (combined['br']==br))],'m',col='black',ax=ax[i],show=False,quiet=True,label_obs = "Combined",label_exp = "Expected")
+
+            
+                ax[i].text(0.5, 0.02,rf"$c\tau = {ctau}\ \mathrm{{mm}}$", transform=ax[i].transAxes,
+                           fontsize=40, ha='center', va='center', 
+                           bbox=dict(facecolor='white',edgecolor='none', alpha=0.5))
+                ax[i].tick_params(axis='both', which='major', labelsize=40)
+            ax[0].legend(loc='upper right',fontsize=40)
+            ax[-1].set_xlabel(r"$m_\Phi$ (GeV)",fontsize=40)
+            ax[0].set_ylabel(r'95% upper limit on $\mathcal{B}(H\rightarrow\Phi\Phi)$',fontsize=40)
+            mh.cms.label(analysis_status,data=True,rlabel="", ax=ax[0], loc=0,fontsize=60)
+            mh.cms.label(None,exp='',data=True,llabel="", ax=ax[-1], loc=0,lumi=lumifb['Run2'],com=13,fontsize=40)
+            ax[0].set_yscale('log')
+            ax[0].set_ylim(0.0005,10)
+            
+            ax[0].text(0.5,0.55,rf'$\mathcal{{B}}(\Phi\rightarrow\gamma\gamma)={br}$',transform=ax[0].transAxes,
+                   fontsize=40, ha='center', va='center', 
+                   bbox=dict(facecolor='white',edgecolor='none', alpha=0.5))
+
+    
+            fig.savefig(f'{outputDir}/obs_vs_exp_year_limits_unrolled_m_ctau_br{br}.{file_extension}', dpi=400, bbox_inches='tight')
+            with open(f'{outputDir}/obs_vs_exp_year_limits_unrolled_m_ctau_br{br}.pickle', "wb") as file:
+                pickle.dump(fig, file)
+            plt.close()
+            

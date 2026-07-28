@@ -21,7 +21,7 @@ ROOT.gInterpreter.Declare('#include "common/vhFakeRates.h"')
 ROOT.gInterpreter.Declare('#include "analysis/ddp_vertex.h"')        
 ROOT.ROOT.EnableImplicitMT()
 
-analysis_status='Supplementary'
+analysis_status='Preliminary'
 
 masses = [15,20,30,40,50,55]
 lifetimes = [0,10,20,50,100,1000]
@@ -1014,73 +1014,6 @@ def runAction(sampleDir,prod,action='fakerate_closure',masses=masses,outputDir='
 
 
 
-        
-#        print("Running MC Closure of Fake rates")
-#            
-#        for ana in analyses:
-#            if ana in ['wmn2g','zmm2g']:
-#                lepton='MU'
-#            else:
-#                lepton='ELE'
-            #create a plotter that has all MC as data
-#            analysis=getAnalysis(sampleDir,prod,ana,background_method='fakerate',era=era,signals=[],lifetimes=[])
-#            plotters=[analysis['wjets'],analysis['zjets'],analysis['tt']]
-#            #create a fake rate MC plotter
-#            for m in masses:
-#                print(f"Running {ana} m={m} GeV") 
-#                bkg=fakerate_plotter(cuts[ana][m]['sr'],
-#                                            cuts[ana][m]['cr'],
-#                                            plotters,
-#                                            'fakeRate_MC',
-#                                            f'fake_rate(Photon_pt[best_2g_idx1_m{m}],Photon_eta[best_2g_idx1_m{m}],Photon_pt[best_2g_idx2_m{m}],Photon_eta[best_2g_idx2_m{m}],(Photon_cutBased[best_2g_idx1_m{m}]>0)#,(Photon_cutBased[best_2g_idx2_m{m}]>0),fake_rate_MC_{lepton}_vals,fake_rate_MC_{lepton}_xbins,fake_rate_MC_{lepton}_ybins)')                                                  
-                #make a stack plotter and plot the stack
-#                stack=mplhep_plotter(com=center_of_mass[era],data=False,lumi=None)
-#                stack.add_plotter(bkg,label='Fake rate estimate',typeP='data',error_mode='poisson_bootstrap')               
-#                stack.add_plotter(analysis['wjets'],label='W+jets',typeP='background',error_mode='w2')
-#                stack.add_plotter(analysis['zjets'],label='DY+jets',typeP='background',error_mode='w2')
-#                stack.add_plotter(analysis['tt'],label=r'$t\bar{t}$+jets',typeP='background',error_mode='w2')
-                #draw a plot
-#                stack.unrolledCustom(f"best_2g_raw_mass_m{m}",f"best_2g_dxy_m{m}",cuts[ana][m]['sr'],binning[ana][m],alpha=1.0,xlabel=r"$d_{xy}$",xunits="cm",show=False,ylabel=r'$m_{\gamma\gamma}$',yunits='GeV',textx=0.7)
-#                plt.savefig(f'{outputDir}/fakerate_closure_{ana}_{m}.{file_extension}', dpi=400, bbox_inches='tight')
-#                stack=None
-#                fr_plotter=None
-#            analysis=None
-#            plotters=None
-                
-
-
-    #ACTION: ABCD MC Closure               
-    elif action=="abcd_closure":
-        print("Running MC Closure of ABCD Method")
-        
-        for ana in analyses:
-            #create a plotter that has all MC as data
-            analysis=getAnalysis(sampleDir,prod,ana,background_method='fakerate',era=era,signals=[],lifetimes=[])
-            if ana in ['wmn2g','wen2g']:
-                plotters=[analysis['wjets'],analysis['zjets'],analysis['tt']]
-            else:
-                plotters=[analysis['zjets'],analysis['tt']]                
-            for m in masses:
-                print(f"Running {ana} m={m} GeV")
-                #create a ABCD MC plotter
-                bkg=abcd_plotter(cuts[ana][m]['sr'],
-                                 cuts[ana][m]['cr_abcd'],
-                                 cuts[ana][m]['ssb'],
-                                 cuts[ana][m]['csb_abcd'],plotters)
-                #make a stack plotter and plot the stack
-                stack=mplhep_plotter(com=center_of_mass[era],data=False,lumi=None)
-                stack.add_plotter(bkg,label='ABCD estimate',typeP='data',error_mode='poisson_bootstrap')              #                stack.add_plotter(analysis['data'],label='Data',typeP='data',error_mode='poisson',color='red')               
-                stack.add_plotter(analysis['wjets'],label='W+jets',typeP='background',error_mode='w2')
-                stack.add_plotter(analysis['zjets'],label='DY+jets',typeP='background',error_mode='w2')
-                stack.add_plotter(analysis['tt'],label=r'$t\bar{t}$+jets',typeP='background',error_mode='w2')
-                #draw a plot
-                stack.unrolledCustom(f"best_2g_raw_mass_m{m}",f"best_2g_dxy_m{m}",cuts[ana][m]['sr'],binning[ana][m],alpha=1.0,xlabel=r"$d_{xy}$",xunits="cm",show=False)
-                plt.savefig(f'{outputDir}/abcd_closure_{ana}_{m}.{file_extension}', dpi=400, bbox_inches='tight')
-                stack=None
-                fr_plotter=None
-            analysis=None
-            plotters=None
-                
     #ACTION: data_vs_background
     elif action=="data_vs_background":
         print("Make data vs background plots in control regions")
@@ -1277,106 +1210,8 @@ def runAction(sampleDir,prod,action='fakerate_closure',masses=masses,outputDir='
 
 
                     
-                    
-                
-        
-
-
-            
-    #ACTION: Final Plots              
-    elif action=="final_plots":
-        print("Make final Plots")
-        mySignals={
-            'wmn2g':['WH','ttH'],
-            'wen2g':['WH','ttH'],
-            'zmm2g':['ZH','ggZH'],
-            'zee2g':['ZH','ggZH']}
-            
-        
-        for ana in analyses:
-            #create a plotter that has all MC as data
-            analysis=getAnalysis(sampleDir,prod,ana,background_method='fakerate',era=era,brphiphi=brphiphi,signals=mySignals[ana],lifetimes=lifetimes)
-            for m in masses:
-                print(f"Running {ana} m={m} GeV")
-                stack=mplhep_plotter(label=analysis_status,data=True,lumi=lumifb[era],com=center_of_mass[era])
-                stack.add_plotter(analysis['bkg'][m],label='Background',typeP='background',error_mode='poisson_bootstrap')
-                for ctau in lifetimes:
-                    stack.add_plotter(analysis['signal'][m][ctau]['sum'],label=r'$m_{\phi}$='+f"{m} GeV,"+r" $c\tau =$ "+f"{ctau} mm",typeP='signal',error_mode='w2',color=signal_colors[ctau])
-                if blinded==False:
-                    stack.add_plotter(analysis['data'],label="Data",typeP='data',error_mode='poisson')               
-                #draw a plot
-                stack.unrolledCustom(f"best_2g_raw_mass_m{m}",f"best_2g_dxy_m{m}",cuts[ana][m]['sr'],binning[ana][m],alpha=1.0,xlabel=r"$d_{xy}$",xunits="cm",ylabel=r'$m_{\gamma\gamma}$',yunits='GeV',textx=0.5,texty=0.95,show=False,legend_ax=0,legend_loc='upper left',legend_bbox=(0.01,0.9))
-                if blinded:
-                    plt.savefig(f'{outputDir}/blinded_prefit_{ana}_{m}_{era}.{file_extension}', dpi=400, bbox_inches='tight')
-                else:
-                    plt.savefig(f'{outputDir}/prefit_{ana}_{m}_{era}.{file_extension}', dpi=400, bbox_inches='tight')
-                stack=None
-            analysis=None
 
     elif action=="background_plots_negativelxy":
-        print("Make 1D final Plots")
-        myTexts = {
-            'wmn2g':r'$W\rightarrow \mu \nu$',
-            'wen2g':r'$W\rightarrow e \nu$',
-            'zmm2g':r'$Z\rightarrow \mu \mu$',
-            'zee2g':r'$Z\rightarrow e e$',
-
-            }
-        for m in masses:
-
-            
-            fig,ax = plt.subplots(nrows=2,ncols=len(analyses),sharex="col",sharey="row",figsize=(25,12),gridspec_kw={'height_ratios':[5,1],
-                                                                                                                    'width_ratios':list(np.full(len(analyses),1))})
-            plt.subplots_adjust(wspace=0,hspace=0)        
-        
-            for i,ana in enumerate(analyses):
-
-                #create a plotter that has all MC as data
-                analysis=getAnalysis(sampleDir,prod,ana,background_method='fakerate',era=era,brphiphi=brphiphi,signals=[],lifetimes=[],brgg=0.5)
-                print(f"Running {i} {ana} m={m} GeV")
-                stack=mplhep_plotter(label=analysis_status,data=True,lumi=lumifb[era],com=center_of_mass[era],capsize=0)
-                stack.add_plotter(analysis['bkg'][m],label='Background',typeP='background',error_mode='poisson_bootstrap')
-                stack.add_plotter(analysis['data'],label="Data",typeP='data',error_mode='poisson')               
-                #draw a plot
-                stack.hist1d(f"best_2g_dxy_m{m}",cuts[ana][m]['presr']+f"*(best_2g_raw_mass_m{m}>65)",('a','a',len(binning1d_sb[ana])-1,binning1d_sb[ana]),alpha=1.0,xlabel=r"$L_{xy}$",xunits="cm",legend_loc='upper right',show=False,ax=ax[0,i],dndx=False)
-                stack.pull1d(f"best_2g_dxy_m{m}",cuts[ana][m]['presr']+f"*(best_2g_raw_mass_m{m}>65)",('a','a',len(binning1d_sb[ana])-1,binning1d_sb[ana]),alpha=1.0,xlabel=r"$L_{xy}$",xunits="cm",legend_loc='upper right',show=False,ax=ax[1,i])
-                
-                analysis=None
-                ax[0,i].text(0.5, 0.95, myTexts[ana] , transform=ax[0,i].transAxes,
-                           fontsize=20, ha='center', va='center', 
-                           bbox=dict(facecolor='white',edgecolor='none', alpha=0.5))
-                ax[0,i].margins(x=0,y=0)
-                ax[1,i].margins(x=0,y=0)
-                
-                if i==(len(analyses)-1):
-                    ax[0,i].legend(loc='upper left', bbox_to_anchor=(0.01,0.9))
-                ax[0,i].tick_params(axis='both', which='major', labelsize=18)
-                ax[1,i].tick_params(axis='both', which='major', labelsize=18)
-            #then stack backgrounds and then draw band
-            lo, hi = ax[0,0].get_ylim()
-            ax[0,0].set_ylim(lo, hi + (hi - lo) * 0.25)
-            ax[1,0].set_ylim(-3,3)
-
-
-
-            ax[0,-1].text(0.1, 0.55, rf"$m_\Phi={m}\ \mathrm{{GeV}}$" , transform=ax[0,-1].transAxes,
-                           fontsize=20, ha='left', va='center', 
-                           bbox=dict(facecolor='white',edgecolor='none', alpha=0.5))
-
-            #Labels
-            mh.cms.label(analysis_status,data=True,rlabel="", ax=ax[0,0], loc=0)
-            mh.cms.label(None,exp='',data=True,llabel="", ax=ax[0,-1], loc=0,lumi=lumifb[era],com=center_of_mass[era])
-            ax[1,-1].set_xlabel(r"$L_{xy}$ (cm)",fontsize=20)
-            ax[0,0].set_ylabel("< Events / cm >",fontsize=20)
-            ax[1,0].set_ylabel(r"$(\mathrm{Data}-\mathrm{Pred.})/\sigma$",fontsize=20)
-            fig.align_ylabels([ax[0,0], ax[1,0]])
-            plt.savefig(f'{outputDir}/sideband_lxy_1D_{m}_{era}.{file_extension}', dpi=400, bbox_inches='tight')
-            with open(f'{outputDir}/sideband_lxy_1D_{m}_{era}.pickle', "wb") as file:
-                pickle.dump(fig, file)
-            
-
-
-    elif action=="background_plots_negativelxy_x2":
         print("Make 1D final Plots")
         myTexts = {
             'wmn2g':r'$W\rightarrow \mu \nu$',
@@ -1451,8 +1286,8 @@ def runAction(sampleDir,prod,action='fakerate_closure',masses=masses,outputDir='
 
                 
                 
-        #ACTION: Final Plots 1D             
-    elif action=="final_mgg_plot":
+        #ACTION: Final Plot of mass 
+    elif action=="final_plots_mgg":
         brgg=0.5
         print("Make 1D final Plots")
         mySignals={
@@ -1540,94 +1375,7 @@ def runAction(sampleDir,prod,action='fakerate_closure',masses=masses,outputDir='
 
 
 
-
-        #ACTION: Final Plots 1D             
-    elif action=="final_plots_1d":
-        brgg=0.5
-        print("Make 1D final Plots")
-        mySignals={
-            'wmn2g':['WH','ttH'],
-            'wen2g':['WH','ttH'],
-            'zmm2g':['ZH','ggZH'],
-            'zee2g':['ZH','ggZH']}
-        myTexts = {
-            'wmn2g':r'$W\rightarrow \mu \nu$',
-            'wen2g':r'$W\rightarrow e \nu$',
-            'zmm2g':r'$Z\rightarrow \mu \mu$',
-            'zee2g':r'$Z\rightarrow e e$',
-
-            }
-        mh.style.use('CMS')
-
-        
-        
-        
-        for m in masses:    
-            #create the common axes
-            
-            fig,ax = plt.subplots(nrows=2,ncols=len(analyses),sharex="col",sharey="row",figsize=(25,12),gridspec_kw={'height_ratios':[5,1],
-                                                                                                                    'width_ratios':list(np.full(len(analyses),1))})
-            plt.subplots_adjust(wspace=0,hspace=0)        
-        
-            for i,ana in enumerate(analyses):
-
-                #create a plotter that has all MC as data
-                analysis=getAnalysis(sampleDir,prod,ana,background_method='fakerate',era=era,brphiphi=brphiphi,signals=mySignals[ana],lifetimes=lifetimes,brgg=brgg)
-                print(f"Running {i} {ana} m={m} GeV")
-                stack=mplhep_plotter(label=analysis_status,data=True,lumi=lumifb[era],com=center_of_mass[era],capsize=0)
-                stack.add_plotter(analysis['bkg'][m],label='Background',typeP='background',error_mode='poisson_bootstrap')
-                for ctau in lifetimes:
-                    stack.add_plotter(analysis['signal'][m][ctau]['sum'],label=r" $H \rightarrow\Phi\Phi,  c\tau =$ "+f"{ctau} mm",typeP='signal',error_mode='w2',color=signal_colors[ctau])
-                if blinded==False:
-                    stack.add_plotter(analysis['data'],label="Data",typeP='data',error_mode='poisson')               
-                #draw a plot
-                stack.hist1d(f"best_2g_dxy_m{m}",cuts[ana][m]['sr'],('a','a',len(binning1d[ana])-1,binning1d[ana]),alpha=1.0,xlabel=r"$L_{xy}$",xunits="cm",legend_loc='upper right',show=False,ax=ax[0,i],dndx=True)
-                stack.pull1d(f"best_2g_dxy_m{m}",cuts[ana][m]['sr'],('a','a',len(binning1d[ana])-1,binning1d[ana]),alpha=1.0,xlabel=r"$L_{xy}$",xunits="cm",legend_loc='upper right',show=False,ax=ax[1,i])
-                
-                analysis=None
-                ax[0,i].text(0.5, 0.95, myTexts[ana] , transform=ax[0,i].transAxes,
-                           fontsize=20, ha='center', va='center', 
-                           bbox=dict(facecolor='white',edgecolor='none', alpha=0.5))
-                ax[0,i].margins(x=0,y=0)
-                ax[1,i].margins(x=0,y=0)
-                
-                if i==(len(analyses)-1):
-                    ax[0,i].legend(loc='upper left', bbox_to_anchor=(0.01,0.9))
-                ax[0,i].tick_params(axis='both', which='major', labelsize=18)
-                ax[1,i].tick_params(axis='both', which='major', labelsize=18)
-            #then stack backgrounds and then draw band
-            lo, hi = ax[0,0].get_ylim()
-            ax[0,0].set_ylim(lo, hi + (hi - lo) * 0.25)
-            ax[1,0].set_ylim(-3,3)
-
-
-
-            ax[0,-1].text(0.1, 0.55, rf"$m_\Phi={m}\ \mathrm{{GeV}}$" , transform=ax[0,-1].transAxes,
-                           fontsize=20, ha='left', va='center', 
-                           bbox=dict(facecolor='white',edgecolor='none', alpha=0.5))
-
-            ax[0,-1].text(0.1, 0.5, r"$\mathcal{B} (H \rightarrow \Phi\Phi)=0.01$" , transform=ax[0,-1].transAxes,
-                           fontsize=20, ha='left', va='center', 
-                           bbox=dict(facecolor='white',edgecolor='none', alpha=0.5))
-            ax[0,-1].text(0.1, 0.45, r"$\mathcal{B}(\Phi \rightarrow \gamma\gamma)=0.5$" , transform=ax[0,-1].transAxes,
-                           fontsize=20, ha='left', va='center', 
-                           bbox=dict(facecolor='white',edgecolor='none', alpha=0.5))
-            
-            #Labels
-            mh.cms.label(analysis_status,data=True,rlabel="", ax=ax[0,0], loc=0)
-            mh.cms.label(None,exp='',data=True,llabel="", ax=ax[0,-1], loc=0,lumi=lumifb[era],com=center_of_mass[era])
-            ax[1,-1].set_xlabel(r"$L_{xy}$ (cm)",fontsize=20)
-            ax[0,0].set_ylabel("< Events / cm >",fontsize=20)
-            ax[1,0].set_ylabel(r"$(\mathrm{Data}-\mathrm{Pred.})/\sigma$",fontsize=20)
-            fig.align_ylabels([ax[0,0], ax[1,0]])
-            if blinded:
-                plt.savefig(f'{outputDir}/blinded_prefit_1D_{m}_{era}.{file_extension}', dpi=400, bbox_inches='tight')
-            else:
-                plt.savefig(f'{outputDir}/prefit_1D_{m}_{era}.{file_extension}', dpi=400, bbox_inches='tight')
-            with open(f'{outputDir}/prefit_1D_{m}_{era}.pickle', "wb") as file:
-                pickle.dump(fig, file)
-
-    elif action=="final_plots_1d_x2":
+    elif action=="final_plots":
         brgg=0.5
         print("Make 1D final Plots")
         mySignals={
@@ -1846,106 +1594,6 @@ def runAction(sampleDir,prod,action='fakerate_closure',masses=masses,outputDir='
                     analysis=None
 
         
-    #ACTION: Make datacards             
-    elif action=="make_datacards":
-        print("Make Datacards")
-        lumiUnc = {'2018': 1.025,
-                   '2017': 1.023,
-                   '2016': 1.012}
-        xsecUnc = {'WH'  : [1+0.005, 1-0.007],
-                   'ZH'  : [1+0.038, 1-0.031],
-                   'ggZH': [1+0.251, 1-0.189],
-                   'ttH' : [1+0.058, 1-0.092]}
-
-        #symmetric
-        pdfUnc = {'WH'  : 1.019,
-                  'ZH'  : 1.016,
-                  'ggZH': 1.024,
-                  'ttH' : 1.036}
-        mySignals={
-            'wmn2g':['WH','ttH'],
-            'wen2g':['WH','ttH'],
-            'zmm2g':['ZH','ggZH'],
-            'zee2g':['ZH','ggZH']}
-            
-        for ana in analyses:
-            for e in eras:
-                for m in masses:                    
-                    for ctau in lifetimes:
-                        analysis=getAnalysis(sampleDir,prod,ana,background_method='fakerate',era=e,brphiphi=brphiphi,masses=[m],signals=signals,lifetimes=[ctau])                        
-                        print(f"Making Datacards for {ana} in era {e} for m={m} GeV and ctau={ctau} mm")
-                        for ibinx,bin_setup in enumerate(binning[ana][m]):
-                            mass_min = bin_setup[0][0]
-                            mass_max=  bin_setup[0][1]
-                            for ibiny,biny in enumerate(bin_setup[1][:-1]):
-                                dxy_min=bin_setup[1][ibiny]
-                                dxy_max=bin_setup[1][ibiny+1]
-                                print(f"Bin {mass_min}<=m<{mass_max} {dxy_min}<= dxy <={dxy_max}")
-                                
-                                cutstring = cuts[ana][m]['sr']+f"*(best_2g_raw_mass_m{m}>={mass_min}&&best_2g_raw_mass_m{m}<{mass_max})*(best_2g_dxy_m{m}>={dxy_min}&&best_2g_dxy_m{m}<{dxy_max})"
-
-                                dcm = cnc_datacard_maker(outDir=outputDir,binname=f"{ana}_m{m}_ctau{ctau}_era{e}_binm_{ibinx}_bindxy_{ibiny}",cuts=cutstring)
-                                dcm.add('data','data',analysis['data'],{})
-
-                                for signal in mySignals[ana]:
-                                    if not (signal in analysis['signal'][m][ctau].keys()):
-                                        print(f"Signal not found {signal} skipping")
-                                        continue
-                                    signalUncertainties={
-                                        f'CMS_lumi_{e}':{'type':'adhoc','kind':'lnN','value':lumiUnc[e]},                                        
-                                        f'CMS_{signal}_xsec':{'type':'adhoc','kind':'lnN','value':f"{xsecUnc[signal][1]}/{xsecUnc[signal][0]}"},
-                                        'CMS_pdf':{'type':'adhoc','kind':'lnN','value':pdfUnc[signal]}
-                                    }
-                                    #add lepton ID SF, some string manipulations in place
-                                    leptonSFs = leptonSF[ana]
-                                    individuals = list(set([x.split('SF_val')[0] for x in leptonSFs.split("*")]))
-                                    for unc in individuals:
-                                        l = unc.replace('Muon','mu').replace('Electron','ele')
-                                        signalUncertainties[f'CMS_{l}_{e}']={'type':'weightAsymm','weightUp':leptonSFs.replace(unc+'SF_val',unc+'SF_up'),'weightDown':leptonSFs.replace(unc+'SF_val',unc+'SF_down'),'weightOrig':leptonSFs}
-
-                                    #Same for photons
-                                    photonSFs = photonSF[m]
-                                    individuals = list(set([x.split('SF_val')[0] for x in photonSFs.split("*")]))
-
-                                    for unc in individuals:
-                                        l = unc.replace('Photon','gamma')
-                                        signalUncertainties[f'CMS_{l}_{e}']={'type':'weightAsymm','weightUp':photonSFs.replace(unc+'SF_val',unc+'SF_up'),'weightDown':photonSFs.replace(unc+'SF_val',unc+'SF_down'),'weightOrig':photonSFs}
-
-                                    #now evaluate the systematics because of photon scale and resolution
-                                    #first define the new photon momenta
-                                    analysis['signal'][m][ctau][signal].define("Photon_ptSmearUp", "ptSmearUp(Photon_pt, Photon_eta, Photon_phi, Photon_dEsigmaUp)")
-                                    analysis['signal'][m][ctau][signal].define("Photon_ptSmearDown", "ptSmearDown(Photon_pt, Photon_eta, Photon_phi, Photon_dEsigmaDown)")
-                                    analysis['signal'][m][ctau][signal].define("Photon_ptScaleUp", "Photon_pt*photonEnergyScale(Photon_eta, Photon_seedGain, PHO_scaledown_{era}_val, PHO_scaledown_{era}_bins, 1)".format(era = "2016preVFP" if e=="2016" else e))
-                                    analysis['signal'][m][ctau][signal].define("Photon_ptScaleDown", "Photon_pt*photonEnergyScale(Photon_eta, Photon_seedGain, PHO_scaleup_{era}_val, PHO_scaledown_{era}_bins, 1)".format(era = "2016preVFP" if e=="2016" else e))
-                                    for unc in ['Scale','Smear']:
-                                        for direction in ['Up','Down']:
-                                            #calculate the mass and the dxy with new pt
-                                            analysis['signal'][m][ctau][signal].define(f"best_2g_{unc}{direction}_m{m}_info", f"kinfit_systematics(Photon_pt{unc}{direction}, Photon_eta, Photon_phi, Photon_isScEtaEB, Photon_isScEtaEE, best_2g_idx1_m{m}, best_2g_idx2_m{m}, {m})")
-                                            analysis['signal'][m][ctau][signal].define(f"best_2g_dxy_{unc}{direction}_m{m}", f"best_2g_{unc}{direction}_m{m}_info[0]")
-                                            analysis['signal'][m][ctau][signal].define(f"best_2g_raw_mass_{unc}{direction}_m{m}", f"best_2g_{unc}{direction}_m{m}_info[1]")
-                                        systName=unc.replace('Scale','scale').replace('Smear','res')     
-                                        signalUncertainties[f'CMS_gamma_{systName}_{e}']={'type':'replication','originals':['Photon_pt',f'best_2g_raw_mass_m{m}',f'best_2g_dxy_m{m}'],
-                                                                                      'replacementsUp':[f"Photon_pt{unc}Up",f"best_2g_raw_mass_{unc}Up_m{m}",f"best_2g_dxy_{unc}Up_m{m}"],
-                                                                                      'replacementsDown':[f"Photon_pt{unc}Down",f"best_2g_raw_mass_{unc}Down_m{m}",f"best_2g_dxy_{unc}Down_m{m}"]}
-                                    dcm.add(signal,'signal',analysis['signal'][m][ctau][signal],uncertainties=signalUncertainties)
-                                    
-                                    
-                                dcm.add('bkg','background',analysis['bkg'][m],uncertainties={
-                                    f"CMS_DDP_{ana}_{e}_binm_{ibinx}_bindxy_{ibiny}_CR_stats":{'type':'statAsym'},
-                                    f"CMS_DDP_fakeRateUnc_{e}":{'type':'weightAsymm','weightUp':'fakeRate_up','weightDown':'fakeRate_down','weightOrig':'fakeRate_val'},
-                                    f"CMS_DDP_{ana}_{e}_binm_{ibinx}_bindxy_{ibiny}_bkg_lowstat":{'type':'zeroRate','value':0.18}
-                                    
-                                },error_mode='poisson_bootstrap')
-                                #write only reasonable cards
-                                write_card_signal = sum([(t=='signal') for s,t in  dcm.types.items()])
-                                write_card_bkg = sum([(t=='background') for s,t in  dcm.types.items()])
-                                
-                                if write_card_signal>0:
-                                    dcm.write()
-                                    
-                        analysis=None
-
-
     elif action=="limit_plots":
         band2sigma_color='#85d2fb'  
         band1sigma_color='#ffde9c'

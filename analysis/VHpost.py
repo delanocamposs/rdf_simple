@@ -21,7 +21,7 @@ ROOT.gInterpreter.Declare('#include "common/vhFakeRates.h"')
 ROOT.gInterpreter.Declare('#include "analysis/ddp_vertex.h"')        
 ROOT.ROOT.EnableImplicitMT()
 
-analysis_status='Preliminary'
+analysis_status='Supplementary'
 
 masses = [15,20,30,40,50,55]
 lifetimes = [0,10,20,50,100,1000]
@@ -399,12 +399,13 @@ def calculate_fake_rate(sampleDir,prod,eras=['2016','2017','2018'],ana='wmugamma
         
     fake_rate_down,fake_rate_up = clopper_pearson(numerator,denominator)
     #make a fake rate plot               
-    fig, ax = plt.subplots()
-    mesh = ax.pcolormesh(xedges, yedges, fake_rate, cmap='plasma', edgecolors='white', linewidth=0.5)
+    fig, ax = plt.subplots(figsize=(20,10))
+    mesh = ax.pcolormesh(xedges, yedges, fake_rate, cmap='rainbow', edgecolors='white', linewidth=0.0)
+    cbar=plt.colorbar(mesh)
     if ana=='wmugamma':
-        plt.colorbar(mesh, label=r'${\mathcal{E}}_\gamma (W\rightarrow \mu\nu)$')
+        cbar.set_label(r'${\mathcal{f}}_\gamma (W\rightarrow \mu\nu)$',size=20)
     else:
-        plt.colorbar(mesh, label=r'${\mathcal{E}}_\gamma (W\rightarrow e\nu)$')
+        cbar.set_label(r'${\mathcal{f}}_\gamma (W\rightarrow e\nu)$',size=20)
         
     # 4. Add labels and uncertainties (The "ROOT TEXT" part)
     # Calculate centers for text placement
@@ -422,20 +423,25 @@ def calculate_fake_rate(sampleDir,prod,eras=['2016','2017','2018'],ana='wmugamma
             val = fake_rate[j, i] # Note: pcolormesh uses (row, col) which is (y, x)
             errUp = fake_rate_up[j, i]-val
             errDwn = val-fake_rate_down[j, i]                    
-            ax.set_xlabel(r"$\gamma p_{T}$ (GeV)")
-            ax.set_ylabel(r"$\gamma \eta$")
+            ax.set_xlabel(r"$\gamma p_{T}$ (GeV)",fontsize=20)
+            ax.set_ylabel(r"$\gamma \eta$",fontsize=20)
+            ax.tick_params(axis='both', which='major', labelsize=20)
+            
         st=st+'}'
         if i!=(len(x_centers)-1):
             st=st+','
     st=st+'};'
     if doMCClosure:
-        mh.cms.label(data=False, ax=ax, loc=0)
+        mh.cms.label(analysis_status,data=False, ax=ax, loc=0)
     else:
         mh.cms.label(analysis_status, data=True, lumi=(lumifb[eras[0]] if len(eras)==1 else lumifb['Run2']), ax=ax, loc=0)
         #print it in C++ format
         #note that we remove the last edge on how the code is defined to work
     st=st+'\n'+f'std::vector<float> {arrayName}_{lepton}_xbins = {{'+','.join([str(x) for x in xedges[:-1]])+'};\n'+f'std::vector<float> {arrayName}_{lepton}_ybins = {{'+','.join([str(y) for y in yedges[:-1]])+'};\n'
     plt.savefig(f'{outdir}/{arrayName}_{lepton}.{file_extension}', dpi=400, bbox_inches='tight')
+    with open(f'{outdir}/{arrayName}_{lepton}.pickle', "wb") as file:
+        pickle.dump(fig, file)
+    
     return st
 
 

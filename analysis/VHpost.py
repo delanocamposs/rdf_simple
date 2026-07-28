@@ -943,7 +943,7 @@ def runAction(sampleDir,prod,action='fakerate_closure',masses=masses,outputDir='
         
         for m in masses:    
             #create the common axes            
-            fig,ax = plt.subplots(nrows=2,ncols=len(analyses),sharex="col",sharey="row",figsize=(25,12),gridspec_kw={'height_ratios':[5,1],
+            fig,ax = plt.subplots(nrows=2,ncols=len(analyses),sharex="col",sharey="row",figsize=(20,12),gridspec_kw={'height_ratios':[5,1],
                                                                                                                     'width_ratios':list(np.full(len(analyses),1))})
             plt.subplots_adjust(wspace=0,hspace=0)        
         
@@ -965,7 +965,7 @@ def runAction(sampleDir,prod,action='fakerate_closure',masses=masses,outputDir='
                                      f'fake_rate(Photon_pt[best_2g_idx1_m{m}],Photon_eta[best_2g_idx1_m{m}],Photon_pt[best_2g_idx2_m{m}],Photon_eta[best_2g_idx2_m{m}],(Photon_cutBased[best_2g_idx1_m{m}]>0),(Photon_cutBased[best_2g_idx2_m{m}]>0),fake_rate_MC_{lepton}_vals,fake_rate_MC_{lepton}_xbins,fake_rate_MC_{lepton}_ybins)')                                                  
                 #make a stack plotter and plot the stack
                 stack=mplhep_plotter(com=center_of_mass[era],data=False,lumi=None)
-                stack.add_plotter(bkg,label='Fake rate estimate',typeP='data',error_mode='poisson_bootstrap')               
+                stack.add_plotter(bkg,label='Estimated by method',typeP='data',error_mode='poisson_bootstrap')               
                 stack.add_plotter(analysis['wjets'],label='W+jets',typeP='background',error_mode='w2')
                 stack.add_plotter(analysis['zjets'],label='DY+jets',typeP='background',error_mode='w2')
                 stack.add_plotter(analysis['tt'],label=r'$t\bar{t}$+jets',typeP='background',error_mode='w2')
@@ -974,29 +974,32 @@ def runAction(sampleDir,prod,action='fakerate_closure',masses=masses,outputDir='
                 
                 analysis=None
                 ax[0,i].text(0.5, 0.95, myTexts[ana] , transform=ax[0,i].transAxes,
-                             fontsize=20, ha='center', va='center', 
+                             fontsize=35, ha='center', va='center', 
                              bbox=dict(facecolor='white',edgecolor='none', alpha=0.5))
                 ax[0,i].margins(x=0,y=0)
                 ax[1,i].margins(x=0,y=0)
                 
                 if i==(len(analyses)-1):
-                    ax[0,i].legend(loc='upper right')
-                ax[0,i].tick_params(axis='both', which='major', labelsize=18)
-                ax[1,i].tick_params(axis='both', which='major', labelsize=18)
+                    ax[0,-1].legend(loc='upper left', bbox_to_anchor=(0.1,0.9),fontsize=35)
+                    
+                ax[0,i].tick_params(axis='both', which='major', labelsize=27.5)
+                ax[1,i].tick_params(axis='both', which='major', labelsize=27.5)
                     #then stack backgrounds and then draw band
             lo, hi = ax[0,0].get_ylim()
-            ax[0,0].set_ylim(lo, hi + (hi - lo) * 0.5)
-            ax[1,0].set_ylim(-3,3)
-            ax[0,-1].text(0.75, 0.65, rf"$m_\Phi={m}\ \mathrm{{GeV}}$" , transform=ax[0,-1].transAxes,
-                          fontsize=20, ha='left', va='center', 
+            ax[0,0].set_ylim(lo, hi + (hi - lo) * 1.5)
+            ax[1,0].set_ylim(-4,4)
+            ax[1,0].set_yticks([-2,0,2])
+            
+            ax[0,0].text(0.45, 0.8, rf"$m_\Phi={m}\ \mathrm{{GeV}}$" , transform=ax[0,0].transAxes,
+                          fontsize=35, ha='left', va='center', 
                           bbox=dict(facecolor='white',edgecolor='none', alpha=0.5))
 
                     #Labels
-            mh.cms.label(None,data=False,rlabel="", ax=ax[0,0], loc=0)
-            mh.cms.label(None,exp='',data=True,llabel="", ax=ax[0,-1], loc=0,lumi=lumifb[era],com=center_of_mass[era])
-            ax[1,-1].set_xlabel(r"$L_{xy}$ (cm)",fontsize=20)
-            ax[0,0].set_ylabel("Events",fontsize=20)
-            ax[1,0].set_ylabel(r"$(\mathrm{Data}-\mathrm{Pred.})/\sigma$",fontsize=20)
+            mh.cms.label(analysis_status,data=False,rlabel="", ax=ax[0,0], loc=0,fontsize=45)
+            mh.cms.label(None,exp='',data=False,llabel="", ax=ax[0,-1], loc=0,com=center_of_mass[era],fontsize=35)
+            ax[1,-1].set_xlabel(r"$L_{xy}$ (cm)",fontsize=35)
+            ax[0,0].set_ylabel("Events/bin",fontsize=35)
+            ax[1,0].set_ylabel("Pull",fontsize=35)
             fig.align_ylabels([ax[0,0], ax[1,0]])
             plt.savefig(f'{outputDir}/fakerate_closure_{m}_{era}.{file_extension}', dpi=400, bbox_inches='tight')
             with open(f'{outputDir}/fakerate_closure_{m}_{era}.pickle', "wb") as file:
@@ -1458,69 +1461,79 @@ def runAction(sampleDir,prod,action='fakerate_closure',masses=masses,outputDir='
             'zee2g':r'$Z\rightarrow e e$',
 
             }
-        mh.style.use('CMS')
-
-        
+        mh.style.use('CMS')       
         for m in masses:    
-        
-            #Create the invariant mass main plot
-            fig,ax = plt.subplots(nrows=2,ncols=len(analyses),sharex="col",sharey="row",figsize=(25,12),gridspec_kw={'height_ratios':[5,1],'width_ratios':list(np.full(len(analyses),1))})
+            fig,ax = plt.subplots(nrows=2,ncols=len(analyses),sharex="col",sharey="row",figsize=(20,12),gridspec_kw={'height_ratios':[5,1],
+                                                                                                                    'width_ratios':list(np.full(len(analyses),1))})
             plt.subplots_adjust(wspace=0,hspace=0)        
         
             for i,ana in enumerate(analyses):
+
+                #create a plotter that has all MC as data
                 analysis=getAnalysis(sampleDir,prod,ana,background_method='fakerate',era=era,brphiphi=brphiphi,signals=mySignals[ana],lifetimes=lifetimes,brgg=brgg)
-                print(f"Mega plot Running {i} {ana} mass={m} GeV")
+                print(f"Running {i} {ana} m={m} GeV")
                 stack=mplhep_plotter(label=analysis_status,data=True,lumi=lumifb[era],com=center_of_mass[era],capsize=0)
                 stack.add_plotter(analysis['bkg'][m],label='Background',typeP='background',error_mode='poisson_bootstrap')
                 for ctau in lifetimes:
-                    stack.add_plotter(analysis['signal'][m][ctau]['sum'],label=r" $H \rightarrow\Phi\Phi, c\tau =$ "+f"{ctau} mm",typeP='signal',error_mode='w2',color=signal_colors[ctau])
+                    stack.add_plotter(analysis['signal'][m][ctau]['sum'],label=r" $H \rightarrow\Phi\Phi,  c\tau =$ "+f"{ctau} mm",typeP='signal',error_mode='w2',color=signal_colors[ctau])
                 if blinded==False:
                     stack.add_plotter(analysis['data'],label="Data",typeP='data',error_mode='poisson')               
                 #draw a plot
                 stack.hist1d(f"best_2g_raw_mass_m{m}",cuts[ana][m]['presr'],('a','a',len(binning_mass[ana])-1,binning_mass[ana]),alpha=1.0,xlabel=r"$m_{\gamma \gamma}$",xunits="GeV",legend_loc='upper right',show=False,ax=ax[0,i],dndx=True)
                 stack.pull1d(f"best_2g_raw_mass_m{m}",cuts[ana][m]['presr'],('a','a',len(binning_mass[ana])-1,binning_mass[ana]),alpha=1.0,xlabel=r"$m_{\gamma \gamma}$",xunits="GeV",legend_loc='upper right',show=False,ax=ax[1,i])
-                
                 analysis=None
                 ax[0,i].text(0.5, 0.95, myTexts[ana] , transform=ax[0,i].transAxes,
-                         fontsize=20, ha='center', va='center', 
-                         bbox=dict(facecolor='white',edgecolor='none', alpha=0.5))
+                           fontsize=35, ha='center', va='center', 
+                           bbox=dict(facecolor='white',edgecolor='none', alpha=0.5))
                 ax[0,i].margins(x=0,y=0)
                 ax[1,i].margins(x=0,y=0)
                 
                 if i==(len(analyses)-1):
-                    ax[0,i].legend(loc='upper left', bbox_to_anchor=(0.01,0.9))
-                ax[0,i].tick_params(axis='both', which='major', labelsize=18)
-                ax[1,i].tick_params(axis='both', which='major', labelsize=18)
+                    handles, labels = ax[0,-1].get_legend_handles_labels()
+                    hl_dict = dict(zip(labels, handles))
+                    ordered_handles=[hl_dict['Data']]
+                    ordered_labels=['Data']
+                    for l,h in hl_dict.items():
+                        if l!='Data':
+                            ordered_labels.append(l)
+                            ordered_handles.append(h)
+                    ax[0,-1].legend(ordered_handles,ordered_labels,loc='upper left', bbox_to_anchor=(0.1,0.9),fontsize=35)
+                ax[0,i].tick_params(axis='both', which='major', labelsize=27.5)
+                ax[1,i].tick_params(axis='both', which='major', labelsize=27.5)
             #then stack backgrounds and then draw band
             lo, hi = ax[0,0].get_ylim()
-            ax[0,0].set_ylim(lo, hi + (hi - lo) * 0.25)
-            ax[1,0].set_ylim(-3,3)
+            ax[0,0].set_ylim(lo, hi + (hi - lo) * (1.0 if 'wmn2g' in analyses else 2.0))
+            ax[1,0].set_ylim(-4,4)
+            ax[1,0].set_yticks([-2,0,2])
 
 
-            ax[0,-1].text(0.1, 0.55, rf"$m_\Phi={m}\ \mathrm{{GeV}}$" , transform=ax[0,-1].transAxes,
-                           fontsize=20, ha='left', va='center', 
+
+            ax[0,0].text(0.45, 0.8, rf"$m_\Phi={m}\ \mathrm{{GeV}}$" , transform=ax[0,0].transAxes,
+                           fontsize=35, ha='left', va='center', 
                            bbox=dict(facecolor='white',edgecolor='none', alpha=0.5))
 
-            ax[0,-1].text(0.1, 0.5, r"$\mathcal{B} (H \rightarrow \Phi\Phi)=0.01$" , transform=ax[0,-1].transAxes,
-                          fontsize=20, ha='left', va='center', 
-                          bbox=dict(facecolor='white',edgecolor='none', alpha=0.5))
-            ax[0,-1].text(0.1, 0.45, r"$\mathcal{B}(\Phi \rightarrow \gamma\gamma)=0.5$" , transform=ax[0,-1].transAxes,
-                          fontsize=20, ha='left', va='center', 
-                          bbox=dict(facecolor='white',edgecolor='none', alpha=0.5))
+            ax[0,0].text(0.45, 0.7, r"$\mathcal{B} (H \rightarrow \Phi\Phi)=0.01$" , transform=ax[0,0].transAxes,
+                           fontsize=35, ha='left', va='center', 
+                           bbox=dict(facecolor='white',edgecolor='none', alpha=0.5))
+            ax[0,0].text(0.45, 0.6, r"$\mathcal{B}(\Phi \rightarrow \gamma\gamma)=0.5$" , transform=ax[0,0].transAxes,
+                           fontsize=35, ha='left', va='center', 
+                           bbox=dict(facecolor='white',edgecolor='none', alpha=0.5))
             
             #Labels
-            mh.cms.label(analysis_status,data=True,rlabel="", ax=ax[0,0], loc=0)
-            mh.cms.label(None,exp='',data=True,llabel="", ax=ax[0,-1], loc=0,lumi=lumifb[era],com=center_of_mass[era])
-            ax[1,-1].set_xlabel(r"$m_{\gamma\gamma}$ (GeV)",fontsize=20)
-            ax[0,0].set_ylabel("< Events / cm >",fontsize=20)
-            ax[1,0].set_ylabel(r"$(\mathrm{Data}-\mathrm{Pred.})/\sigma$",fontsize=20)
+            mh.cms.label(analysis_status,data=True,rlabel="", ax=ax[0,0], loc=0,fontsize=45)
+            mh.cms.label(None,exp='',data=True,llabel="", ax=ax[0,-1], loc=0,lumi=lumifb[era],com=center_of_mass[era],fontsize=35)
+            ax[1,-1].set_xlabel(r"$m_{\gamma\gamma}$ (GeV)",fontsize=35)
+            ax[0,0].set_ylabel("Events / bin ",fontsize=35)
+#            ax[1,0].set_ylabel(r"$(\mathrm{Data}-\mathrm{Pred.})/\sigma$",fontsize=24)
+            ax[1,0].set_ylabel("Pull",fontsize=35,loc='center')
             fig.align_ylabels([ax[0,0], ax[1,0]])
-            if blinded:
-                plt.savefig(f'{outputDir}/blinded_prefit_mgg_{m}_{era}.{file_extension}', dpi=400, bbox_inches='tight')
-            else:
-                plt.savefig(f'{outputDir}/prefit_mgg_{m}_{era}.{file_extension}', dpi=400, bbox_inches='tight')
-                with open(f'{outputDir}/prefit_mgg_{m}_{era}.pickle', "wb") as file:
-                    pickle.dump(fig, file)
+            anastr = '_'.join(analyses)
+            plt.savefig(f'{outputDir}/prefit_mgg_{m}_{era}_{anastr}.{file_extension}', dpi=400, bbox_inches='tight')
+            with open(f'{outputDir}/prefit_mgg_{m}_{era}_{anastr}.pickle', "wb") as file:
+                pickle.dump(fig, file)
+
+
+
 
         #ACTION: Final Plots 1D             
     elif action=="final_plots_1d":
@@ -1958,14 +1971,15 @@ def runAction(sampleDir,prod,action='fakerate_closure',masses=masses,outputDir='
             mh.cms.label(analysis_status,data=True,rlabel="", ax=ax[0], loc=0,fontsize=60)
             mh.cms.label(None,exp='',data=True,llabel="", ax=ax[-1], loc=0,lumi=lumifb['Run2'],com=13,fontsize=40)
             ax[0].set_yscale('log')
-            ax[0].set_ylim(0.0005,10)
+#            ax[0].set_ylim(0.0005,10)
             ax[0].text(0.5,0.7,rf'$\mathcal{{B}}(\Phi\rightarrow\gamma\gamma)={br}$',transform=ax[0].transAxes,
                    fontsize=40, ha='center', va='center', 
                    bbox=dict(facecolor='white',edgecolor='none', alpha=0.5))
 
-    
-            fig.savefig(f'{outputDir}/combined_limits_unrolled_m_ctau_br{br}.{file_extension}', dpi=400, bbox_inches='tight')
-            with open(f'{outputDir}/combined_limits_unrolled_m_ctau_br{br}.pickle', "wb") as file:
+            brstr=str(br).replace('.','_')
+            
+            fig.savefig(f'{outputDir}/combined_limits_unrolled_m_ctau_br{brstr}.{file_extension}', dpi=400, bbox_inches='tight')
+            with open(f'{outputDir}/combined_limits_unrolled_m_ctau_br{brstr}.pickle', "wb") as file:
                 pickle.dump(fig, file)
             plt.close()
         for ctau in lifetimes:

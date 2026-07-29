@@ -381,8 +381,8 @@ std::vector<float> getVertexInfo(const double pt1, const double eta1, const doub
 
 bool compare_pair(const RVecF& q1,const RVecF& q2) {
   //first invariant mass of pairs
-  unsigned int mass1 = q1[8]<65. ? 1:0;
-  unsigned int mass2 = q2[8]<65 ? 1:0;
+  unsigned int mass1 = q1[8]<62.5. ? 1:0;
+  unsigned int mass2 = q2[8]<62.5 ? 1:0;
 
   unsigned int valid1 = q1[7]>0 ? 1:0;
   unsigned int valid2 = q2[7]>0 ? 1:0;
@@ -434,8 +434,8 @@ bool compare_pair(const RVecF& q1,const RVecF& q2) {
 
 bool compare_pair_withId(const RVecF& q1,const RVecF& q2) {
   //first invariant mass of pairs
-  unsigned int mass1 = q1[8]<65. ? 1:0;
-  unsigned int mass2 = q2[8]<65 ? 1:0;
+  unsigned int mass1 = q1[8]<62.5. ? 1:0;
+  unsigned int mass2 = q2[8]<62.5 ? 1:0;
 
   unsigned int valid1 = q1[7]>0 ? 1:0;
   unsigned int valid2 = q2[7]>0 ? 1:0;
@@ -720,10 +720,10 @@ bool compare_quad_pairing(const std::vector<float>p1_A,const std::vector<float>p
       ROOT::Math::PtEtaPhiMVector p2_B1(p2_B[0],p2_B[1],p2_B[2],0.0);
       ROOT::Math::PtEtaPhiMVector p2_B2(p2_B[3],p2_B[4],p2_B[5],0.0);
       //first we see if the mass is everywhere below 125/2.
-      unsigned int p1_masscut_A = (p1_A1+p1_A2).M()<65. ? 1:0; 
-      unsigned int p1_masscut_B = (p1_B1+p1_B2).M()<65. ? 1:0; 
-      unsigned int p2_masscut_A = (p2_A1+p2_A2).M()<65. ? 1:0; 
-      unsigned int p2_masscut_B = (p2_B1+p2_B2).M()<65. ? 1:0; 
+      unsigned int p1_masscut_A = (p1_A1+p1_A2).M()<62.5. ? 1:0; 
+      unsigned int p1_masscut_B = (p1_B1+p1_B2).M()<62.5. ? 1:0; 
+      unsigned int p2_masscut_A = (p2_A1+p2_A2).M()<62.5. ? 1:0; 
+      unsigned int p2_masscut_B = (p2_B1+p2_B2).M()<62.5. ? 1:0; 
 
       if ((p1_masscut_A+p1_masscut_B)>(p2_masscut_A+p2_masscut_B)) {
 	return true;

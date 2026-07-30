@@ -3,10 +3,18 @@
 #include <Math/GenVector/LorentzVector.h>
 #include <Math/GenVector/PtEtaPhiM4D.h>
 #include <Math/GenVector/PxPyPzM4D.h>
+#include <ROOT/RVec.hxx>
 #include "TVector3.h"
 #include "TMath.h"
 #include <algorithm>
 #include <stdio.h>
+
+using ROOT::VecOps::RVec;
+using ROOT::VecOps::DeltaPhi;
+using ROOT::VecOps::DeltaR;
+using RVecF = ROOT::VecOps::RVec<float>;
+using RVecI = ROOT::VecOps::RVec<int>;
+
 class VertexCalculator {
  private:
   TVector3 vertex_;
@@ -381,8 +389,8 @@ std::vector<float> getVertexInfo(const double pt1, const double eta1, const doub
 
 bool compare_pair(const RVecF& q1,const RVecF& q2) {
   //first invariant mass of pairs
-  unsigned int mass1 = q1[8]<62.5. ? 1:0;
-  unsigned int mass2 = q2[8]<62.5 ? 1:0;
+  unsigned int mass1 = q1[8]<65. ? 1:0;
+  unsigned int mass2 = q2[8]<65 ? 1:0;
 
   unsigned int valid1 = q1[7]>0 ? 1:0;
   unsigned int valid2 = q2[7]>0 ? 1:0;
@@ -434,8 +442,8 @@ bool compare_pair(const RVecF& q1,const RVecF& q2) {
 
 bool compare_pair_withId(const RVecF& q1,const RVecF& q2) {
   //first invariant mass of pairs
-  unsigned int mass1 = q1[8]<62.5. ? 1:0;
-  unsigned int mass2 = q2[8]<62.5 ? 1:0;
+  unsigned int mass1 = q1[8]<65. ? 1:0;
+  unsigned int mass2 = q2[8]<65 ? 1:0;
 
   unsigned int valid1 = q1[7]>0 ? 1:0;
   unsigned int valid2 = q2[7]>0 ? 1:0;
@@ -640,147 +648,78 @@ RVecF best_3gamma(RVecF pt,RVecF eta, RVecF phi,RVec<bool> EB, RVec<bool> EE,RVe
   return all_combos[sortedIndices[0]];
 }
 
-bool compare_quad(const RVecF& q1,const RVecF& q2) {
-      ROOT::Math::PtEtaPhiMVector p1_A1(q1[0],q1[1],q1[2],0.0);
-      ROOT::Math::PtEtaPhiMVector p1_A2(q1[3],q1[4],q1[5],0.0);
-      ROOT::Math::PtEtaPhiMVector p1_B1(q1[8],q1[9],q1[10],0.0);
-      ROOT::Math::PtEtaPhiMVector p1_B2(q1[11],q1[12],q1[13],0.0);
-      float sumpt1 = (p1_A1+p1_A2).pt()+(p1_B1+p1_B2).pt();
-
-      ROOT::Math::PtEtaPhiMVector p2_A1(q2[0],q2[1],q2[2],0.0);
-      ROOT::Math::PtEtaPhiMVector p2_A2(q2[3],q2[4],q2[5],0.0);
-      ROOT::Math::PtEtaPhiMVector p2_B1(q2[8],q2[9],q2[10],0.0);
-      ROOT::Math::PtEtaPhiMVector p2_B2(q2[11],q2[12],q2[13],0.0);
-      float sumpt2 = (p2_A1+p2_A2).pt()+(p2_B1+p2_B2).pt();
-
-
-  //first invariant mass of pairs
-  unsigned int mass1_1 = q1[16]<62.5 ? 1:0;
-  unsigned int mass1_2 = q1[17]<62.5 ? 1:0;
-  unsigned int mass2_1 = q2[16]<62.5 ? 1:0;
-  unsigned int mass2_2 = q2[17]<62.5 ? 1:0;
-
-  unsigned int valid1_1 = q1[7]>0 ? 1:0;
-  unsigned int valid1_2 = q1[15]>0 ? 1:0;
-  unsigned int valid2_1 = q2[7]>0 ? 1:0;
-  unsigned int valid2_2 = q2[15]>0 ? 1:0;
-
-  unsigned int dxy1_1   = q1[6]>-8 ? 1:0;
-  unsigned int dxy1_2   = q1[14]>-8 ? 1:0;
-  unsigned int dxy2_1   = q2[6]>-8 ? 1:0;
-  unsigned int dxy2_2    = q2[14]>-8 ? 1:0;
-
-
-
-  
-  if ((mass1_1+mass1_2)>(mass2_1+mass2_2)) {
-    return true;
-  }
-  else if ((mass1_1+mass1_2)<(mass2_1+mass2_2)) {
-    return false;
-  }
-  else {
-    if ((valid1_1+valid1_2)>(valid2_1+valid2_2))
-      return true;
-    else if ((valid1_1+valid1_2)<(valid2_1+valid2_2))
-      return false;
-    else {
-      //if both valid look at dxy
-      if ((valid1_1+valid1_2)==2) {
-	if ((dxy1_1+dxy1_2)>(dxy2_1+dxy2_2))
-	  return true;
-	else if ((dxy1_1+dxy1_2)<(dxy2_1+dxy2_2))
-	  return false;
-	else {
-	  if (sumpt1>sumpt2)
-	    return true;
-	  else
-	    return false;
-	}
-      }
-      else  {
-	  if (sumpt1>sumpt2)
-	    return true;
-	  else
-	    return false;
-      }
-    }
-  }
-
+float quad_pairing_mass_score(const float raw_mass_A, const float raw_mass_B, const float target_mass) {
+  return std::abs(raw_mass_A-target_mass)+std::abs(raw_mass_B-target_mass);
 }
 
-bool compare_quad_pairing(const std::vector<float>p1_A,const std::vector<float>p1_B,const std::vector<float>p2_A,const std::vector<float>p2_B) {
-      ROOT::Math::PtEtaPhiMVector p1_A1(p1_A[0],p1_A[1],p1_A[2],0.0);
-      ROOT::Math::PtEtaPhiMVector p1_A2(p1_A[3],p1_A[4],p1_A[5],0.0);
-      ROOT::Math::PtEtaPhiMVector p1_B1(p1_B[0],p1_B[1],p1_B[2],0.0);
-      ROOT::Math::PtEtaPhiMVector p1_B2(p1_B[3],p1_B[4],p1_B[5],0.0);
 
-      ROOT::Math::PtEtaPhiMVector p2_A1(p2_A[0],p2_A[1],p2_A[2],0.0);
-      ROOT::Math::PtEtaPhiMVector p2_A2(p2_A[3],p2_A[4],p2_A[5],0.0);
-      ROOT::Math::PtEtaPhiMVector p2_B1(p2_B[0],p2_B[1],p2_B[2],0.0);
-      ROOT::Math::PtEtaPhiMVector p2_B2(p2_B[3],p2_B[4],p2_B[5],0.0);
-      //first we see if the mass is everywhere below 125/2.
-      unsigned int p1_masscut_A = (p1_A1+p1_A2).M()<62.5. ? 1:0; 
-      unsigned int p1_masscut_B = (p1_B1+p1_B2).M()<62.5. ? 1:0; 
-      unsigned int p2_masscut_A = (p2_A1+p2_A2).M()<62.5. ? 1:0; 
-      unsigned int p2_masscut_B = (p2_B1+p2_B2).M()<62.5. ? 1:0; 
+bool compare_quad(const RVecF& q1,const RVecF& q2) {
+  unsigned int q1_valid = (q1[7]>0)+(q1[15]>0);
+  unsigned int q2_valid = (q2[7]>0)+(q2[15]>0);
+  if (q1_valid!=q2_valid)
+    return q1_valid>q2_valid;
 
-      if ((p1_masscut_A+p1_masscut_B)>(p2_masscut_A+p2_masscut_B)) {
-	return true;
-      }
-      else if ((p1_masscut_A+p1_masscut_B)<(p2_masscut_A+p2_masscut_B)) {
-	return false;
-      } 
-      else {
+  if (q1[28]!=q2[28])
+    return q1[28]<q2[28];
 
-	if((p1_A[7]+p1_B[7])>(p2_A[7]+p2_B[7])) {
-	  return true;
-	}
-	else if ((p1_A[7]+p1_B[7])<(p2_A[7]+p2_B[7])) {
-	  return false; //should this be false? - changed to false by delano aug. 8/29/25
-	} 
-	else if ((p1_A[7]+p1_B[7])==(p2_A[7]+p2_B[7])) {
-	  float p1_pt = (p1_A1+p1_A2).pt()+(p1_B1+p1_B2).pt();
-	  float p2_pt = (p2_A1+p2_A2).pt()+(p2_B1+p2_B2).pt();
+  unsigned int q1_dxy = (q1[6]>-8.0)+(q1[14]>-8.0);
+  unsigned int q2_dxy = (q2[6]>-8.0)+(q2[14]>-8.0);
+  if (q1_dxy!=q2_dxy)
+    return q1_dxy>q2_dxy;
 
-	  
-	  //if both invalid or half valid just group by higher SUM pt
-	  if ((p1_A[7]+p1_B[7])<2) {
-	    if (p1_pt>=p2_pt)
-	      return true;
-	    else
-	      return false;
-	  }
-	  else {
-	    
-	    //both valid if one of them is negative dxy pick the other
-	    unsigned int p1_A_dxy =p1_A[6]>-8.0 ? 1 :0; 
-	    unsigned int p1_B_dxy =p1_B[6]>-8.0 ? 1 :0; 
-	    unsigned int p2_A_dxy =p2_A[6]>-8.0 ? 1 :0; 
-	    unsigned int p2_B_dxy =p2_B[6]>-8.0 ? 1 :0; 
-	    if((p1_A_dxy+p1_B_dxy)>(p2_A_dxy+p2_B_dxy))
-	      return true;
-	    else if ((p1_A_dxy+p1_B_dxy)<(p2_A_dxy+p2_B_dxy))
-	      return false;
-	    else {
-	      //sum pt
-	      if (p1_pt>=p2_pt)
-		return true;
-	      else
-		return false;
-	    }
-	  }
-	} 
-      }
-      return true;
-} 
+  ROOT::Math::PtEtaPhiMVector q1_A1(q1[0],q1[1],q1[2],0.0);
+  ROOT::Math::PtEtaPhiMVector q1_A2(q1[3],q1[4],q1[5],0.0);
+  ROOT::Math::PtEtaPhiMVector q1_B1(q1[8],q1[9],q1[10],0.0);
+  ROOT::Math::PtEtaPhiMVector q1_B2(q1[11],q1[12],q1[13],0.0);
+  ROOT::Math::PtEtaPhiMVector q2_A1(q2[0],q2[1],q2[2],0.0);
+  ROOT::Math::PtEtaPhiMVector q2_A2(q2[3],q2[4],q2[5],0.0);
+  ROOT::Math::PtEtaPhiMVector q2_B1(q2[8],q2[9],q2[10],0.0);
+  ROOT::Math::PtEtaPhiMVector q2_B2(q2[11],q2[12],q2[13],0.0);
+  float q1_sumpt = (q1_A1+q1_A2).pt()+(q1_B1+q1_B2).pt();
+  float q2_sumpt = (q2_A1+q2_A2).pt()+(q2_B1+q2_B2).pt();
+  return q1_sumpt>q2_sumpt;
+}
+
+
+bool compare_quad_pairing(const std::vector<float>& p1_A,
+			  const std::vector<float>& p1_B,
+			  const float p1_score,
+			  const std::vector<float>& p2_A,
+			  const std::vector<float>& p2_B,
+			  const float p2_score) {
+  unsigned int p1_valid = (p1_A[7]>0)+(p1_B[7]>0);
+  unsigned int p2_valid = (p2_A[7]>0)+(p2_B[7]>0);
+
+  if (p1_valid!=p2_valid)
+    return p1_valid>p2_valid;
+
+  if (p1_score!=p2_score)
+    return p1_score<p2_score;
+
+  unsigned int p1_dxy = (p1_A[6]>-8.0)+(p1_B[6]>-8.0);
+  unsigned int p2_dxy = (p2_A[6]>-8.0)+(p2_B[6]>-8.0);
+  if (p1_dxy!=p2_dxy)
+    return p1_dxy>p2_dxy;
+
+  ROOT::Math::PtEtaPhiMVector p1_A1(p1_A[0],p1_A[1],p1_A[2],0.0);
+  ROOT::Math::PtEtaPhiMVector p1_A2(p1_A[3],p1_A[4],p1_A[5],0.0);
+  ROOT::Math::PtEtaPhiMVector p1_B1(p1_B[0],p1_B[1],p1_B[2],0.0);
+  ROOT::Math::PtEtaPhiMVector p1_B2(p1_B[3],p1_B[4],p1_B[5],0.0);
+  ROOT::Math::PtEtaPhiMVector p2_A1(p2_A[0],p2_A[1],p2_A[2],0.0);
+  ROOT::Math::PtEtaPhiMVector p2_A2(p2_A[3],p2_A[4],p2_A[5],0.0);
+  ROOT::Math::PtEtaPhiMVector p2_B1(p2_B[0],p2_B[1],p2_B[2],0.0);
+  ROOT::Math::PtEtaPhiMVector p2_B2(p2_B[3],p2_B[4],p2_B[5],0.0);
+  float p1_sumpt = (p1_A1+p1_A2).pt()+(p1_B1+p1_B2).pt();
+  float p2_sumpt = (p2_A1+p2_A2).pt()+(p2_B1+p2_B2).pt();
+  return p1_sumpt>p2_sumpt;
+}
 
 
 RVecF best_4gamma(RVecF pt,RVecF eta, RVecF phi,RVec<bool> EB, RVec<bool> EE,RVecI isLoose, RVecI gID, RVecF gIso, float mass) {
 
   RVec<RVecF> all_combos;
   RVecF result;
-  result.reserve(28);
+  result.reserve(29);
   auto idx_cmb = ROOT::VecOps::Combinations(pt, 4);
   VertexCalculator *calc = new VertexCalculator();
   std::vector<float> best23_A;
@@ -795,6 +734,7 @@ RVecF best_4gamma(RVecF pt,RVecF eta, RVecF phi,RVec<bool> EB, RVec<bool> EE,RVe
   int g2;
   int g3;
   int g4;
+  float best_score;
 
   for (size_t i = 0; i < idx_cmb[0].size(); i++) {
     const auto i1 = idx_cmb[0][i];
@@ -819,6 +759,9 @@ RVecF best_4gamma(RVecF pt,RVecF eta, RVecF phi,RVec<bool> EB, RVec<bool> EE,RVe
     float raw_m = (p0+p1+p2+p3).M();
     ROOT::Math::PtEtaPhiMVector pA = p0+p1;
     ROOT::Math::PtEtaPhiMVector pB = p2+p3;
+    float pairing1_score = quad_pairing_mass_score((p0+p1).M(),(p2+p3).M(),mass);
+    float pairing2_score = quad_pairing_mass_score((p0+p2).M(),(p1+p3).M(),mass);
+    float pairing3_score = quad_pairing_mass_score((p0+p3).M(),(p1+p2).M(),mass);
   
 
     //first pairing
@@ -835,9 +778,12 @@ RVecF best_4gamma(RVecF pt,RVecF eta, RVecF phi,RVec<bool> EB, RVec<bool> EE,RVe
     
     
     
-    if (compare_quad_pairing(pairing2_A,pairing2_B,pairing3_A,pairing3_B)) {
+    float best23_score;
+    if (compare_quad_pairing(pairing2_A,pairing2_B,pairing2_score,
+			     pairing3_A,pairing3_B,pairing3_score)) {
       best23_A.insert(best23_A.end(),pairing2_A.begin(),pairing2_A.end());
       best23_B.insert(best23_B.end(),pairing2_B.begin(),pairing2_B.end());
+      best23_score = pairing2_score;
       g1 = i1;
       g2 = i3;
       g3 = i2;
@@ -849,6 +795,7 @@ RVecF best_4gamma(RVecF pt,RVecF eta, RVecF phi,RVec<bool> EB, RVec<bool> EE,RVe
     else {
       best23_A.insert(best23_A.end(),pairing3_A.begin(),pairing3_A.end());
       best23_B.insert(best23_B.end(),pairing3_B.begin(),pairing3_B.end());
+      best23_score = pairing3_score;
       g1 = i1;
       g2 = i4;
       g3 = i2;
@@ -856,9 +803,11 @@ RVecF best_4gamma(RVecF pt,RVecF eta, RVecF phi,RVec<bool> EB, RVec<bool> EE,RVe
       pA=p0+p3;
       pB=p1+p2;
     }
-    if (compare_quad_pairing(pairing1_A,pairing1_B,best23_A,best23_B)) {
+    if (compare_quad_pairing(pairing1_A,pairing1_B,pairing1_score,
+			     best23_A,best23_B,best23_score)) {
       best_A.insert(best_A.end(),pairing1_A.begin(),pairing1_A.end());
       best_B.insert(best_B.end(),pairing1_B.begin(),pairing1_B.end());
+      best_score = pairing1_score;
       g1 = i1;
       g2 = i2;
       g3 = i3;
@@ -869,6 +818,7 @@ RVecF best_4gamma(RVecF pt,RVecF eta, RVecF phi,RVec<bool> EB, RVec<bool> EE,RVe
     else {
       best_A.insert(best_A.end(),best23_A.begin(),best23_A.end());
       best_B.insert(best_B.end(),best23_B.begin(),best23_B.end());
+      best_score = best23_score;
     }
 
     result.emplace_back(best_A[0]);
@@ -906,9 +856,10 @@ RVecF best_4gamma(RVecF pt,RVecF eta, RVecF phi,RVec<bool> EB, RVec<bool> EE,RVe
     result.emplace_back(g2);
     result.emplace_back(g3);
     result.emplace_back(g4);
+    result.emplace_back(best_score);
     all_combos.emplace_back(result);
   }
-  delete calc;  
+  delete calc;
   if (all_combos.size()>1) {
     auto sortedIndices = ROOT::VecOps::Argsort(all_combos,compare_quad);
     return all_combos[sortedIndices[0]];
@@ -925,7 +876,7 @@ RVecF best_4gamma_1bad(RVecF pt,RVecF eta, RVecF phi,RVec<bool> EB, RVec<bool> E
 
   RVec<RVecF> all_combos;
   RVecF result;
-  result.reserve(28);
+  result.reserve(29);
   auto idx_cmb = ROOT::VecOps::Combinations(pt, 4);
   VertexCalculator *calc = new VertexCalculator();
   std::vector<float> best23_A;
@@ -940,6 +891,7 @@ RVecF best_4gamma_1bad(RVecF pt,RVecF eta, RVecF phi,RVec<bool> EB, RVec<bool> E
   int g2;
   int g3;
   int g4;
+  float best_score;
 
   for (size_t i = 0; i < idx_cmb[0].size(); i++) {
     const auto i1 = idx_cmb[0][i];
@@ -966,10 +918,13 @@ RVecF best_4gamma_1bad(RVecF pt,RVecF eta, RVecF phi,RVec<bool> EB, RVec<bool> E
     float raw_m = (p0+p1+p2+p3).M();
     ROOT::Math::PtEtaPhiMVector pA = p0+p1;
     ROOT::Math::PtEtaPhiMVector pB = p2+p3;
-  
+    float pairing1_score = quad_pairing_mass_score((p0+p1).M(),(p2+p3).M(),mass);
+    float pairing2_score = quad_pairing_mass_score((p0+p2).M(),(p1+p3).M(),mass);
+    float pairing3_score = quad_pairing_mass_score((p0+p3).M(),(p1+p2).M(),mass);
+
 
     //first pairing
-    std::vector<float> pairing1_A = calc->getVertexInfo(pt[i1],eta[i1],phi[i1],EE[i1],EB[i1],pt[i2],eta[i2],phi[i2],EE[i2],EB[i2],mass); 
+    std::vector<float> pairing1_A = calc->getVertexInfo(pt[i1],eta[i1],phi[i1],EE[i1],EB[i1],pt[i2],eta[i2],phi[i2],EE[i2],EB[i2],mass);
     std::vector<float> pairing1_B = calc->getVertexInfo(pt[i3],eta[i3],phi[i3],EE[i3],EB[i3],pt[i4],eta[i4],phi[i4],EE[i4],EB[i4],mass); 
     
     //second pairing
@@ -982,9 +937,12 @@ RVecF best_4gamma_1bad(RVecF pt,RVecF eta, RVecF phi,RVec<bool> EB, RVec<bool> E
     
     
     
-    if (compare_quad_pairing(pairing2_A,pairing2_B,pairing3_A,pairing3_B)) {
+    float best23_score;
+    if (compare_quad_pairing(pairing2_A,pairing2_B,pairing2_score,
+			     pairing3_A,pairing3_B,pairing3_score)) {
       best23_A.insert(best23_A.end(),pairing2_A.begin(),pairing2_A.end());
       best23_B.insert(best23_B.end(),pairing2_B.begin(),pairing2_B.end());
+      best23_score = pairing2_score;
       g1 = i1;
       g2 = i3;
       g3 = i2;
@@ -996,6 +954,7 @@ RVecF best_4gamma_1bad(RVecF pt,RVecF eta, RVecF phi,RVec<bool> EB, RVec<bool> E
     else {
       best23_A.insert(best23_A.end(),pairing3_A.begin(),pairing3_A.end());
       best23_B.insert(best23_B.end(),pairing3_B.begin(),pairing3_B.end());
+      best23_score = pairing3_score;
       g1 = i1;
       g2 = i4;
       g3 = i2;
@@ -1003,9 +962,11 @@ RVecF best_4gamma_1bad(RVecF pt,RVecF eta, RVecF phi,RVec<bool> EB, RVec<bool> E
       pA=p0+p3;
       pB=p1+p2;
     }
-    if (compare_quad_pairing(pairing1_A,pairing1_B,best23_A,best23_B)) {
+    if (compare_quad_pairing(pairing1_A,pairing1_B,pairing1_score,
+			     best23_A,best23_B,best23_score)) {
       best_A.insert(best_A.end(),pairing1_A.begin(),pairing1_A.end());
       best_B.insert(best_B.end(),pairing1_B.begin(),pairing1_B.end());
+      best_score = pairing1_score;
       g1 = i1;
       g2 = i2;
       g3 = i3;
@@ -1016,6 +977,7 @@ RVecF best_4gamma_1bad(RVecF pt,RVecF eta, RVecF phi,RVec<bool> EB, RVec<bool> E
     else {
       best_A.insert(best_A.end(),best23_A.begin(),best23_A.end());
       best_B.insert(best_B.end(),best23_B.begin(),best23_B.end());
+      best_score = best23_score;
     }
 
     result.emplace_back(best_A[0]);
@@ -1054,9 +1016,10 @@ RVecF best_4gamma_1bad(RVecF pt,RVecF eta, RVecF phi,RVec<bool> EB, RVec<bool> E
     result.emplace_back(g2);
     result.emplace_back(g3);
     result.emplace_back(g4);
+    result.emplace_back(best_score);
     all_combos.emplace_back(result);
   }
-  delete calc;  
+  delete calc;
   if (all_combos.size()>1) {
     auto sortedIndices = ROOT::VecOps::Argsort(all_combos,compare_quad);
     return all_combos[sortedIndices[0]];

@@ -4,7 +4,7 @@ samples_data_2018 = {
                     'veto_triggers':[],
                     'isMC':0,
                     'era': '2018',
-                    'jobs':16},
+                    'jobs':32},
 'EGamma_2018B':{'dataset':'/EGamma/Run2018B-UL2018_MiniAODv2_NanoAODv9-v1/NANOAOD',
                     'triggers':['HLT_TriplePhoton_20_20_20_CaloIdLV2'],
                     'veto_triggers':[],

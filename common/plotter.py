@@ -844,7 +844,7 @@ class mplhep_plotter(object):
         for plotter in self.plotters:
             plotter['plotter'].redefine(var, definition)
 
-    def hist1d(self,var,cuts,model,alpha=1.0,xlabel="",xunits="",legend_loc='upper right',show=True,ax=None,dndx=False):
+    def hist1d(self,var,cuts,model,alpha=1.0,xlabel="",xunits="",legend_loc='upper right',show=True,ax=None,dndx=False,signalstep=False,top_space=0.25):
         background_hists=[]
         background_edges=[]
         background_w2=[]
@@ -914,6 +914,31 @@ class mplhep_plotter(object):
             
         if quiet==False:        
             fig,ax = plt.subplots()
+
+        if len(data_hists)>0:           
+            mh.histplot(data_hists,data_edges[0],
+                        histtype='errorbar',
+                        stack=False,
+                        label=data_labels,
+                        color=data_colors,
+                        yerr = [np.sqrt(a) for a in data_w2],
+                        xerr = True,
+                        capsize=self.capsize,
+                        ax=ax,
+                        density=(False)
+                        )
+        if len(signal_hists)>0:
+            mh.histplot(signal_hists,signal_edges[0],
+                        histtype=('step' if (self.stack or signalstep) else 'fill'),
+                        stack=False,
+                        label=signal_labels,
+                        color=signal_colors,
+                        yerr=None,
+                        ax=ax,
+                        alpha =( 1.0 if self.stack else alpha), 
+                        density=False
+                        )                   
+            
         if len(background_hists)>0:
             #plot background stack            
             mh.histplot(background_hists,background_edges[0],
@@ -923,7 +948,7 @@ class mplhep_plotter(object):
                         ax=ax,
 #                        alpha=(alpha if self.stack==False else 1.0), 
                         alpha=alpha, 
-                        density=(True if self.stack==False else False)
+                        density=False
                         )
            
             #plot background error band in a custom way (since we use old version of mplhep)
@@ -938,18 +963,7 @@ class mplhep_plotter(object):
                 ax.fill_between(background_edges[0],
                                 np.append(background_sum-np.sqrt(background_sumw2[0]),0),
                                 np.append(background_sum+np.sqrt(background_sumw2[1]),0),
-                                step='post', color='#cdcbcb', alpha=0.5, hatch='xxxx',label='bkg. uncertainty')            
-        if len(signal_hists)>0:
-            mh.histplot(signal_hists,signal_edges[0],
-                        histtype=('step' if self.stack else 'fill'),
-                        stack=False,
-                        label=signal_labels,
-                        color=signal_colors,
-                        yerr=None,
-                        ax=ax,
-                        alpha =( 1.0 if self.stack else alpha), 
-                        density=(True if self.stack==False else False)                        
-                        )                   
+                                step='post', color='#cdcbcb', alpha=0.5, hatch='xxxx',label='Bkg. uncertainty')            
             #Now redraw the background outlines if we are doing stack
             if len(background_hists)>0 and self.stack:
                 mh.histplot(background_hists,background_edges[0],
@@ -960,42 +974,33 @@ class mplhep_plotter(object):
                             ax=ax
                             )
 
-        if len(data_hists)>0:           
-            mh.histplot(data_hists,data_edges[0],
-                        histtype='errorbar',
-                        stack=False,
-                        label=data_labels,
-                        color=data_colors,
-                        yerr = [np.sqrt(a) for a in data_w2],
-                        xerr = True,
-                        capsize=self.capsize,
-                        ax=ax,
-                        density=(True if self.stack==False else False)                        
-                        )
 
         #add labels and legends only if you made an axis or else do it later
         if quiet==False:
-            ax.legend(loc=legend_loc)
+            ax.legend(loc=legend_loc,fontsize=30)
             if self.data==True:
-                mh.cms.label(self.label, data=self.data, lumi=self.lumi, com=self.com,ax=ax, loc=0)
-            else:
-                mh.cms.label(self.label, data=self.data, lumi=None, com=None,rlabel=f'{self.com} TeV',ax=ax, loc=0)
-            lo, hi = ax.get_ylim()
-            ax.set_ylim(lo, hi + (hi - lo) * 0.25)
+                mh.cms.label(self.label,data=self.data,rlabel="", ax=ax, loc=0)
+                mh.cms.label(None,exp='',data=self.data,llabel="", ax=ax, loc=0,lumi=lumifb[era],com=center_of_mass[era])
 
+            else:
+                mh.cms.label(self.label,data=self.data,rlabel="", ax=ax, loc=0)
+                mh.cms.label(None,exp='',data=self.data,llabel="",rlabel=f'{self.com} TeV', ax=ax, loc=0)
+            lo, hi = ax.get_ylim()
+            ax.set_ylim(lo, hi + (hi - lo) * top_space)
+            ax.tick_params(axis='both', which='major', labelsize=30)
             
             #fix the lower limit
             lims=plt.ylim()
             plt.ylim(0.0, lims[1])
             if xlabel!="":
                 if xunits!='':
-                    ax.set_xlabel(f"{xlabel} ({xunits})")
+                    ax.set_xlabel(f"{xlabel} ({xunits})",fontsize=30)
                 else:
-                    ax.set_xlabel(f"{xlabel}")                
+                    ax.set_xlabel(f"{xlabel}",fontsize=30)                
             if self.stack:
-                ax.set_ylabel("Events")
+                ax.set_ylabel("Events",fontsize=30)
             else:
-                ax.set_ylabel("a.u")
+                ax.set_ylabel("Fraction of events",fontsize=30)
 
             plt.margins(x=0)            
             if show:
@@ -1392,7 +1397,7 @@ class mplhep_plotter(object):
                                 density=(True if self.stack==False else False)                        
                                 )
             ax[i].text(textx, texty, f'{xedges[0]}'+r"$\leq$"+f"{ylabel} <{xedges[1]} {yunits}" , transform=ax[i].transAxes,
-                       fontsize=20, ha='center', va='center', 
+                       fontsize=30, ha='center', va='center', 
                        bbox=dict(facecolor='white',edgecolor='none', alpha=0.5))
             #then stack backgrounds and then draw band
             ax[i].margins(x=0)
@@ -1474,9 +1479,9 @@ class limit_plotter(object):
         if quiet==False:
             ax.legend(loc=legend_loc)
             if xlabel!="":
-                ax.set_xlabel(f"{xlabel} ({xunits})")
+                ax.set_xlabel(f"{xlabel} ({xunits})",fontsize=35)
             if ylabel!="":
-                ax.set_ylabel(ylabel)
+                ax.set_ylabel(ylabel,fontsize=35)
             if self.data==True:
                 mh.cms.label(self.label, data=self.data, lumi=self.lumi, com=self.com,ax=ax, loc=0)
             else:
@@ -1485,13 +1490,13 @@ class limit_plotter(object):
         if show:
             plt.show()
         
-    def expected_vs_observed(self,df,x,col='lime',ax=None,show=False,quiet=False,legend_loc='upper right',xlabel='',xunits='',ylabel='95% CL Upper Limits',label_suffix=''):
+    def expected_vs_observed(self,df,x,col='lime',ax=None,show=False,quiet=False,legend_loc='upper right',xlabel='',xunits='',ylabel='95% CL Upper Limits',label_obs='',label_exp=''):
 
         if ax is None:
             fig,ax = plt.subplots()
         
-        ax.plot(df[(df['quantile']==500)][x],df[(df['quantile']==500)]['limit']*self.scale,linestyle='--',color=col,label=r'Expected '+label_suffix,lw=2)
-        ax.plot(df[(df['quantile']==-1)][x],df[(df['quantile']==500)]['limit']*self.scale,color=col,label='Observed '+label_suffix,lw=2)
+        ax.plot(df[(df['quantile']==500)][x],df[(df['quantile']==500)]['limit']*self.scale,linestyle='--',color=col,label=label_exp,lw=4)
+        ax.plot(df[(df['quantile']==-1)][x],df[(df['quantile']==-1)]['limit']*self.scale,color=col,label=label_obs,lw=4)
         ax.margins(x=0)
                      
         if quiet==False:

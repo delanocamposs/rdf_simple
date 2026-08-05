@@ -1,0 +1,10 @@
+*root
+*png
+*pdf 
+*txt
+*json
+*out
+ggHsmear.py
+__pycache__/
+*.pyc
+*.swp

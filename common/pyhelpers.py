@@ -55,7 +55,6 @@ def load_meta_data(data):
 def loadSample(info,locator='root://cms-xrd-global.cern.ch//'):
     meta={}
     files=[]
-    print(info['dataset'])
     if 'local:' in info['dataset']:
         files=info['dataset'].split('local:')[1].split(',')
     else:
@@ -81,10 +80,9 @@ def loadSample(info,locator='root://cms-xrd-global.cern.ch//'):
         if tag not in ['dataset','triggers','veto_triggers']:
             meta[tag]=data
     meta['files'] = files        
-    if 'era' in info.keys():
-        meta['era'] = info['era']
-    else:
-        meta['era'] = '2018' # Assume 2018 if not included
+    if 'era' not in info:
+        raise KeyError("sample '{}' has no 'era' key.era chooses the isolation branch,the scale factors and the golden json,so it cannot be assumed".format(info.get('dataset', '<no dataset>')))
+    meta['era'] = info['era']
     if 'customNanoAOD' in info.keys():
         meta['customNanoAOD'] = info['customNanoAOD']
     else:
@@ -93,8 +91,6 @@ def loadSample(info,locator='root://cms-xrd-global.cern.ch//'):
         meta['isScouting']=info['isScouting']
     else:
         meta['isScouting']=0
-    print(meta['isScouting'])
-    print(type(meta['isScouting']))
     return meta
 
 

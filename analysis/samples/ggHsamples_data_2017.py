@@ -10,7 +10,7 @@ samples_data_2017 = {
                     'isMC':0,
                     'veto_triggers':[],
                     'era': '2017',
-                    'jobs':8},
+                    'jobs':16},
 'DoubleEG_2017D':{'dataset':'/DoubleEG/Run2017D-UL2017_MiniAODv2_NanoAODv9-v1/NANOAOD',
                     'triggers':['HLT_TriplePhoton_20_20_20_CaloIdLV2'],
                     'isMC':0,
@@ -28,5 +28,5 @@ samples_data_2017 = {
                     'isMC':0,
                     'veto_triggers':[],
                     'era': '2017',
-                    'jobs':16}
+                    'jobs':20}
 }

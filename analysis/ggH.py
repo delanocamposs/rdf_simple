@@ -275,7 +275,7 @@ def ggH(data,phi_mass,sample):
     actions=[]
 
     dataframe =load_meta_data(data)
-    ggH=dataframe["Events"]
+    ggH=dataframe["Events"].Filter("isGoodLumi","passed_lumiFilter")
     era=data['era']
 
     if data["isMC"]:
@@ -355,7 +355,7 @@ def Zee(data, sample):
     actions=[]
 
     dataframe =load_meta_data(data)
-    Zee=dataframe["Events"]
+    Zee=dataframe["Events"].Filter("isGoodLumi","passed_lumiFilter")
 
     Zee=Zee.Define("pho_pass_id","""
     (ROOT::VecOps::RVec<char>)((

@@ -45,7 +45,10 @@ def get_ID_val(var, ID_type):
             }
 
     return cuts_ID[ID_type]['barrel'][var][0], cuts_ID[ID_type]['endcap'][var][0]
-    
+
+photon_ID_variants = {"": "custom", "_EGM": "EGM"}
+photon_ID_masks = {"": "Photon_passCustomCutBasedID", "_EGM": "Photon_passEGMCutBasedID"}
+
 # Common Object ID:
 def muonAna(dataframe):
 
@@ -90,13 +93,15 @@ def photonAna(dataframe):
     #photons = photons.Define("Photon_eleOverlap", "overlapClean(Photon_phi, Photon_eta, Electron_phi[loose_electron], Electron_eta[loose_electron])")
     #photons = photons.Define("Photon_overlap", "Photon_muOverlap||Photon_eleOverlap")
 
+    #this preselection should be the same for both custom ID and standard EGM ID
     photons = dataframe.Define("Photon_preselection", "Photon_pt>20&&!Photon_pixelSeed&&abs(Photon_eta)<2.5&&(abs(Photon_eta)>1.57||abs(Photon_eta)<1.44)&&(Photon_isScEtaEE||Photon_isScEtaEB)")
     #photons = photons.Define("Photon_rho", "fixedGridRhoFastjetAll")
     photons=photons.Define("Photon_PassPhIso" , "passPhIso(Photon_vidNestedWPBitmap)")
-    sieie3, sieie4 = get_ID_val("sieie", "custom")
-    hoe3, hoe4 = get_ID_val("hoe", "custom")
-    photons = photons.Define("Photon_IdNoIso",f"((Photon_isScEtaEB&&Photon_hoe<{hoe3}&&Photon_sieie<{sieie3})||(Photon_isScEtaEE&&Photon_hoe<{hoe4}&&Photon_sieie<{sieie4}))")
-    return photons    
+    for tag, ID_type in photon_ID_variants.items():
+        sieie3, sieie4 = get_ID_val("sieie", ID_type)
+        hoe3, hoe4 = get_ID_val("hoe", ID_type)
+        photons = photons.Define(f"Photon_IdNoIso{tag}",f"((Photon_isScEtaEB&&Photon_hoe<{hoe3}&&Photon_sieie<{sieie3})||(Photon_isScEtaEE&&Photon_hoe<{hoe4}&&Photon_sieie<{sieie4}))")
+    return photons
 
 def save_report(df, report_name, sample, opts, actions):
         report = ROOT.RDataFrame(1)
@@ -224,6 +229,7 @@ def ggH(data,phi_mass,sample):
         df=df.Define('best_4g_phi2_mass_m{}'.format(mass),'raw_best_4g_m{}[17]'.format(mass))
         df=df.Define('best_4g_uncorr_mass_m{}'.format(mass),'raw_best_4g_m{}[18]'.format(mass))
         df=df.Define('best_4g_corr_mass_m{}'.format(mass),'raw_best_4g_m{}[19]'.format(mass))
+        df=df.Define('best_4g_pairing_score_m{}'.format(mass),'raw_best_4g_m{}[28]'.format(mass))
         return df
     
     def preselection(df, mass):
@@ -232,22 +238,30 @@ def ggH(data,phi_mass,sample):
     
     def IDs(df, mass):
         df=df.Define('best_4g_sumID_m{}'.format(mass),'raw_best_4g_m{m}[20]+raw_best_4g_m{m}[21]+raw_best_4g_m{m}[22]+raw_best_4g_m{m}[23]'.format(m=mass)) 
-        preselection_str = " && ".join(f"(Photon_preselection[raw_best_4g_m{{m}}[{i}]]==1)" for i in range(24,28))
-        idnoiso_str = " && ".join(f"(Photon_IdNoIso[raw_best_4g_m{{m}}[{i}]]==1)" for i in range(24,28))
-        iso_str = " && ".join(f"(Photon_PassPhIso[raw_best_4g_m{{m}}[{i}]]==1)" for i in range(24,28))
-        best_4g_ID_str_ggH4g="{} && {} && {}".format(preselection_str, idnoiso_str, iso_str)
-        df=df.Define('best_4g_ID_m{}'.format(mass),best_4g_ID_str_ggH4g.format(m=mass))
+        gamma_labels = {1: 'phi1_gamma1', 2: 'phi1_gamma2', 3: 'phi2_gamma1', 4: 'phi2_gamma2'}
+        for tag in photon_ID_variants:
+            preselection_str = " && ".join(f"(Photon_preselection[raw_best_4g_m{{m}}[{i}]]==1)" for i in range(24,28))
+            idnoiso_str = " && ".join(f"(Photon_IdNoIso{tag}[raw_best_4g_m{{m}}[{i}]]==1)" for i in range(24,28))
+            iso_str = " && ".join(f"(Photon_PassPhIso[raw_best_4g_m{{m}}[{i}]]==1)" for i in range(24,28))
+            best_4g_ID_str_ggH4g="{} && {} && {}".format(preselection_str, idnoiso_str, iso_str)
+            df=df.Define('best_4g_ID{}_m{}'.format(tag,mass),best_4g_ID_str_ggH4g.format(m=mass))
+            if tag:
+                id_flags = [f'(Photon_IdNoIso{tag}[best_4g_idx{i}_m{mass}]==1 && Photon_corrIso_m{mass}[best_4g_idx{i}_m{mass}]<0.1)' for i in range(1,5)]
+                for i, flag in enumerate(id_flags, 1):
+                    df=df.Define(f'best_4g_{gamma_labels[i]}_id{tag}_m{mass}', flag)
+                df=df.Define(f'best_4g_sumID{tag}_m{mass}', " + ".join(id_flags))
         return df
 
     def scale_factors(df, era):
-        if era in ['2023preBPix', '2023postBPix']:
-            df=df.Define("pho_SFs_id", f"scaleFactors_3d(Photon_phi, Photon_eta, Photon_pt, PHO_ID_{era}_sf, PHO_ID_{era}_binsX, PHO_ID_{era}_binsY, PHO_ID_{era}_binsZ, sample_isMC, Photon_passCustomCutBasedID)")
-        else:
-            df=df.Define("pho_SFs_id", f"scaleFactors_2d(Photon_eta, Photon_pt, PHO_ID_{era}_sf, PHO_ID_{era}_binsX, PHO_ID_{era}_binsY, sample_isMC, Photon_passCustomCutBasedID)")
-        df=df.Define("Photon_idSF_val", "pho_SFs_id[0]")
-        df=df.Define("Photon_idSF_up", "pho_SFs_id[1]+pho_SFs_id[0]")
-        df=df.Define("Photon_idSF_down", "pho_SFs_id[0]-pho_SFs_id[1]")
-    
+        for tag, mask in photon_ID_masks.items():
+            if era in ['2023preBPix', '2023postBPix']:
+                df=df.Define(f"pho_SFs_id{tag}", f"scaleFactors_3d(Photon_phi, Photon_eta, Photon_pt, PHO_ID_{era}_sf, PHO_ID_{era}_binsX, PHO_ID_{era}_binsY, PHO_ID_{era}_binsZ, sample_isMC, {mask})")
+            else:
+                df=df.Define(f"pho_SFs_id{tag}", f"scaleFactors_2d(Photon_eta, Photon_pt, PHO_ID_{era}_sf, PHO_ID_{era}_binsX, PHO_ID_{era}_binsY, sample_isMC, {mask})")
+            df=df.Define(f"Photon_idSF{tag}_val", f"pho_SFs_id{tag}[0]")
+            df=df.Define(f"Photon_idSF{tag}_up", f"pho_SFs_id{tag}[1]+pho_SFs_id{tag}[0]")
+            df=df.Define(f"Photon_idSF{tag}_down", f"pho_SFs_id{tag}[0]-pho_SFs_id{tag}[1]")
+
         df=df.Define("pho_SFs_pix", f"getPixelSeedSF(Photon_isScEtaEB, Photon_isScEtaEE, hasPix_{era}_sf, sample_isMC, !Photon_pixelSeed)")
         df=df.Define("Photon_pixSF_val", "pho_SFs_pix[0]")
         df=df.Define("Photon_pixSF_up", "pho_SFs_pix[0]+pho_SFs_pix[1]")
@@ -257,7 +271,7 @@ def ggH(data,phi_mass,sample):
 #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 
-    cols = "best_.*|sample_.*|^Photon_.*|^Electron_.*|Weight.*|^Gen.*|^weight.*|^TrigObj_.*|^event.*|^Pileup_.*|^run.*|gen.*|.*LHE.*|^PV.*|luminosity|Block|genWeight|HLT_passed|sorted_photon_pt|Pass_L1_DoubleEG15_11|Pass_L1_DoubleEG16_11|Pass_L1_DoubleEG17_11|Pass_L1_DoubleEG_OR"
+    cols = "best_.*|sample_.*|^Photon_.*|^Electron_.*|Weight.*|^Gen.*|^weight.*|^TrigObj_.*|^event.*|^Pileup_.*|^run.*|gen.*|.*LHE.*|^PV.*|luminosity|Block|genWeight|HLT_passed|HLT_DoublePhoton33_CaloIdL|HLT_Diphoton30_18_R9IdL_AND_HE_AND_IsoCaloId|HLT_Diphoton30PV_18PV_R9Id_AND_IsoCaloId_AND_HE_R9Id_PixelVeto_Mass55|HLT_TriplePhoton_20_20_20_CaloIdLV2|sorted_photon_pt|Pass_L1_DoubleEG15_11|Pass_L1_DoubleEG16_11|Pass_L1_DoubleEG17_11|Pass_L1_DoubleEG_OR"
     actions=[]
 
     dataframe =load_meta_data(data)
@@ -275,8 +289,6 @@ def ggH(data,phi_mass,sample):
 
     ggH=photonAna(ggH)
     ggH4g=ggH.Filter('nPhoton>3','at_least_4_photons')
-    
-    #ggH4g=emulate_scouting_trigger(ggH4g)
     ggH4g=ggH4g.Filter('Sum(Photon_preselection==1)>3','at_least_3_preselected_photons')
 
     for mass in phi_mass:
@@ -300,7 +312,8 @@ def ggH(data,phi_mass,sample):
 
     #ggH4g=ggH4g.Filter(f'sample_isMC==1 | non_MC_cut_m{m}==1','blinding_data_samples')
 
-    ggH4g=ggH4g.Define("Photon_passCustomCutBasedID", "Photon_preselection==1 && Photon_IdNoIso==1 && Photon_PassPhIso==1")
+    for tag, mask in photon_ID_masks.items():
+        ggH4g=ggH4g.Define(mask, f"Photon_preselection==1 && Photon_IdNoIso{tag}==1 && Photon_PassPhIso==1")
     ggH4g=scale_factors(ggH4g,era)
     actions.append(ggH4g.Snapshot('ggH4g', f"{sample}_ggH4g.root", cols, opts))
 
@@ -311,6 +324,7 @@ def ggH(data,phi_mass,sample):
     return actions
 
 def Zee(data, sample):
+    #analysis only used for tag and probe studies
     cols = "best_.*|sample_.*|^Photon_.*|^Electron_.*|Weight.*|^Gen.*|^weight.*|^TrigObj_.*|^event.*|^Pileup_.*|^run.*|gen.*|.*LHE.*|^PV.*|luminosity|Block|genWeight|HLT_passed|sorted_photon_pt|DST_PFScouting_DoubleEG|nScoutingPhoton|^ScoutingPhoton_.*|gg_scouting|^gg_scouting_.*|good_idx|pt_id|eta_id|phi_id|pho_pass_id|sorted_pt_id|nPhoID|pass_DST"
 
     ROOT.gInterpreter.Declare("""

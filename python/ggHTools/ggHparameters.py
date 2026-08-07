@@ -4,10 +4,10 @@ order_gen = 4
 eos_base = "/eos/uscms/store/user/dacampos/analysis"
 
 def signal_path(mass, ctau, year):
-    return f"{eos_base}/signal/ggH4g_M{mass}_ctau{ctau}_{year}_0_ggH4g_M{mass}_ctau{ctau}_{year}_ggH4g.root"
+    return f"{eos_base}/signal_new/ggH4g_M{mass}_ctau{ctau}_{year}_0_ggH4g_M{mass}_ctau{ctau}_{year}_ggH4g.root"
 
 def bkg_path(year):
-    return f"{eos_base}/data/EGamma_{year}_updated/EGamma_{year}_all_ggH4g.root"
+    return f"{eos_base}/data_new/EGamma_{year}_updated/EGamma_{year}_all_ggH4g.root"
 
 signal_window = (110, 140)
 

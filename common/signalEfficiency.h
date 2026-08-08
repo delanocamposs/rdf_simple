@@ -185,11 +185,20 @@ RVecI passPhIso(RVecI bitmaps){
   return out;
 }
 
-RVecI phIsoWP(RVecI bitmaps){
+RVecI phIsoWP_Run2(RVecI bitmaps){
   RVecI out;
   out.reserve(bitmaps.size());
   for (size_t i=0;i<bitmaps.size();i++){
     out.emplace_back((bitmaps[i]>>12)&3);
+  }
+  return out;
+}
+
+RVecI phIsoWP_Run3(RVecI bitmaps){
+  RVecI out;
+  out.reserve(bitmaps.size());
+  for (size_t i=0;i<bitmaps.size();i++){
+    out.emplace_back((bitmaps[i]>>10)&3);
   }
   return out;
 }

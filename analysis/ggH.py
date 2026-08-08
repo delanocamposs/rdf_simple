@@ -41,7 +41,6 @@ def get_ID_val(var, ID_type):
     return cuts_ID[ID_type]['barrel'][var][0], cuts_ID[ID_type]['endcap'][var][0]
 
 egm_wp={"Loose":1,"Medium":2,"Tight":3}
-photon_ID_masks={"_custom":"Photon_passFullCutBasedID_custom","_LooseEGM":"Photon_passFullCutBasedID_LooseEGM"}
 
 # Common Object ID:
 def muonAna(dataframe):
@@ -191,14 +190,13 @@ def ggH(data,phi_mass,sample):
         return df
 
     def scale_factors(df, era):
-        for tag, mask in photon_ID_masks.items():
-            if era in ['2023preBPix', '2023postBPix']:
-                df=df.Define(f"pho_SFs_id{tag}", f"scaleFactors_3d(Photon_phi, Photon_eta, Photon_pt, PHO_ID_{era}_sf, PHO_ID_{era}_binsX, PHO_ID_{era}_binsY, PHO_ID_{era}_binsZ, sample_isMC, {mask})")
-            else:
-                df=df.Define(f"pho_SFs_id{tag}", f"scaleFactors_2d(Photon_eta, Photon_pt, PHO_ID_{era}_sf, PHO_ID_{era}_binsX, PHO_ID_{era}_binsY, sample_isMC, {mask})")
-            df=df.Define(f"Photon_idSF{tag}_val", f"pho_SFs_id{tag}[0]")
-            df=df.Define(f"Photon_idSF{tag}_up", f"pho_SFs_id{tag}[1]+pho_SFs_id{tag}[0]")
-            df=df.Define(f"Photon_idSF{tag}_down", f"pho_SFs_id{tag}[0]-pho_SFs_id{tag}[1]")
+        if era in ['2023preBPix','2023postBPix']:
+            df=df.Define("pho_SFs_id_LooseEGM",f"scaleFactors_3d(Photon_phi,Photon_eta,Photon_pt,PHO_ID_{era}_sf,PHO_ID_{era}_binsX,PHO_ID_{era}_binsY,PHO_ID_{era}_binsZ,sample_isMC,Photon_passFullCutBasedID_LooseEGM)")
+        else:
+            df=df.Define("pho_SFs_id_LooseEGM",f"scaleFactors_2d(Photon_eta,Photon_pt,PHO_ID_{era}_sf,PHO_ID_{era}_binsX,PHO_ID_{era}_binsY,sample_isMC,Photon_passFullCutBasedID_LooseEGM)")
+        df=df.Define("Photon_idSF_LooseEGM_val","pho_SFs_id_LooseEGM[0]")
+        df=df.Define("Photon_idSF_LooseEGM_up","pho_SFs_id_LooseEGM[1]+pho_SFs_id_LooseEGM[0]")
+        df=df.Define("Photon_idSF_LooseEGM_down","pho_SFs_id_LooseEGM[0]-pho_SFs_id_LooseEGM[1]")
 
         df=df.Define("pho_SFs_pix", f"getPixelSeedSF(Photon_isScEtaEB, Photon_isScEtaEE, hasPix_{era}_sf, sample_isMC, !Photon_pixelSeed)")
         df=df.Define("Photon_pixSF_val", "pho_SFs_pix[0]")

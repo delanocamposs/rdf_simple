@@ -71,13 +71,13 @@ def sig_bkg_histos(files, isMC, trees, mass, lifetime, selections, var, output_n
             rdf_j_k = rdf_j_k.Filter(cuts.combine(cuts.trigger(), cuts.dxy_valid(mass))).Filter(selection_j)
             if isMC[k]:
                 weight_formula_k = cuts.mc_weight(sumw_dict[files[k]])
-                rdf_j_k = rdf_j_k.Filter(cuts.combine(cuts.preselection(mass), cuts.full_id(mass), cuts.pileup())).Define("event_weight", weight_formula_k)
+                rdf_j_k = rdf_j_k.Filter(cuts.combine(cuts.preselection(mass), cuts.custom_id(mass), cuts.pileup())).Define("event_weight", weight_formula_k)
                 hist_j_k = rdf_j_k.Histo1D((f"{histo_names[j][k]}", f"{j}_{k};{var};Events", bins[0], bins[1], bins[2]), f"{var}", "event_weight")
                 hist_j_k.Scale(lumi_scaling)
                 hist_j_k.Write()
                 histo_obj[j].append(hist_j_k)
             else:
-                rdf_j_k = rdf_j_k.Filter(cuts.combine(cuts.preselection(mass), cuts.full_id(mass), cuts.sidebands(mass)))
+                rdf_j_k = rdf_j_k.Filter(cuts.combine(cuts.preselection(mass), cuts.custom_id(mass), cuts.sidebands(mass)))
                 hist_j_k = rdf_j_k.Histo1D((f"{histo_names[j][k]}", f"{j}_{k};{var};Events", fit_bins[0], fit_bins[1], fit_bins[2]), f"{var}")
                 hist_j_k.Scale(lumi_scaling)
                 hist_j_k.Write()
@@ -137,4 +137,3 @@ def clopper_pearson(X, n, alpha=0.05):
     upper=beta.ppf(1-(alpha/2),X+1,n-X)
     return lower,upper
     
-

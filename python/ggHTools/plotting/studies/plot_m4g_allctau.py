@@ -40,7 +40,7 @@ def signal_hist(mass, ctau, year, category, hist_bins):
     df = ROOT.RDataFrame("ggH4g", path)
     df = df.Define("event_weight", cuts.mc_weight(sumw))
     df = df.Filter(cuts.combine(cuts.trigger(), cuts.dxy_valid(mass),
-                                cuts.preselection(mass), cuts.full_id(mass),
+                                cuts.preselection(mass), cuts.custom_id(mass),
                                 cuts.pileup()))
     df = df.Filter(cats[category])
 

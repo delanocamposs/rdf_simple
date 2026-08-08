@@ -45,7 +45,7 @@ def run(mass, ctau, year, cat):
 
     bkg=bkg_path(year)
     data_ID_df=ROOT.RDataFrame("ggH4g", bkg)
-    data_ID_df=data_ID_df.Filter(cuts.combine(cuts.preselection(mass), cuts.trigger(), cuts.dxy_valid(mass), cuts.full_id(mass), cuts.blind(mass), cuts.categories(mass)[cat]))
+    data_ID_df=data_ID_df.Filter(cuts.combine(cuts.preselection(mass), cuts.trigger(), cuts.dxy_valid(mass), cuts.custom_id(mass), cuts.blind(mass), cuts.categories(mass)[cat]))
     h_data=data_ID_df.Histo1D(("data_hist", f"data_hist;4#gamma mass;Events", bins_data[0], bins_data[1], bins_data[2]), f"{var}")
 
     #signal histogram built separately for each year.
@@ -61,7 +61,7 @@ def run(mass, ctau, year, cat):
         signal_df_y = ROOT.RDataFrame("ggH4g", sig_y)
         weight_y = cuts.mc_weight(sumw_y)
         signal_df_y = signal_df_y.Define("event_weight", weight_y)
-        signal_df_y = signal_df_y.Filter(cuts.combine(cuts.trigger(), cuts.dxy_valid(mass), cuts.full_id(mass), cuts.preselection(mass), cuts.pileup(), cuts.categories(mass)[cat]))
+        signal_df_y = signal_df_y.Filter(cuts.combine(cuts.trigger(), cuts.dxy_valid(mass), cuts.custom_id(mass), cuts.preselection(mass), cuts.pileup(), cuts.categories(mass)[cat]))
         h_y = signal_df_y.Histo1D((f"sig_tmp_{y}", f"sig_tmp_{y}", bins_sig[0], bins_sig[1], bins_sig[2]), var, "event_weight")
         h_y_clone = h_y.GetValue().Clone(f"sig_scaled_{y}")
         h_y_clone.Scale(lumi[y])

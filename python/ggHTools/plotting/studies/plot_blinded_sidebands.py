@@ -35,8 +35,8 @@ def run(mass, ctau, year):
     data_ID_df=ROOT.RDataFrame("ggH4g", bkg)
     data_pre_df=ROOT.RDataFrame("ggH4g", bkg)
     
-    signal_df=signal_df.Filter(cuts.combine(cuts.trigger(), cuts.dxy_valid(mass), cuts.full_id(mass), cuts.pileup()))
-    data_ID_df=data_ID_df.Filter(cuts.combine(cuts.preselection(mass), cuts.trigger(), cuts.dxy_valid(mass), cuts.full_id(mass), cuts.blind(mass)))
+    signal_df=signal_df.Filter(cuts.combine(cuts.trigger(), cuts.dxy_valid(mass), cuts.custom_id(mass), cuts.pileup()))
+    data_ID_df=data_ID_df.Filter(cuts.combine(cuts.preselection(mass), cuts.trigger(), cuts.dxy_valid(mass), cuts.custom_id(mass), cuts.blind(mass)))
     data_pre_df=data_pre_df.Filter(cuts.combine(cuts.trigger(), cuts.dxy_valid(mass), cuts.preselection(mass), cuts.blind(mass)))
     
     signal_histo=signal_df.Histo1D(("hist1_1", f"hist1_1;{var};Events", bins[0], bins[1], bins[2]), f"best_4g_corr_mass_m{mass}", "event_weight")

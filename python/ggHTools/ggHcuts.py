@@ -32,8 +32,8 @@ def dxy_valid(mass):
 def preselection(mass):
     return " && ".join(f"Photon_preselection[best_4g_idx{i}_m{mass}]==1" for i in range(1, 5))
 
-def full_id(mass):
-    return f"best_4g_ID_custom_m{mass}==1 && best_4g_passPhIso_LooseEGM_m{mass}==1"
+def custom_id(mass):
+    return f"best_4g_ID_custom_m{mass}==1"
 
 def egm_id(mass,wp):
     wp=wp.capitalize()

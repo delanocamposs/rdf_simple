@@ -41,6 +41,7 @@ def get_ID_val(var, ID_type):
     return cuts_ID[ID_type]['barrel'][var][0], cuts_ID[ID_type]['endcap'][var][0]
 
 egm_wp={"Loose":1,"Medium":2,"Tight":3}
+run3_eras={"2022preEE","2022postEE","2023preBPix","2023postBPix","2024"}
 
 # Common Object ID:
 def muonAna(dataframe):
@@ -65,7 +66,7 @@ def electronAna(dataframe):
     electrons = electrons.Define("Electron_nveto", "Sum(veto_electron)")
     return electrons
 
-def photonAna(dataframe):
+def photonAna(dataframe, era):
     # Overlap with loose leptons
     #photons = dataframe.Define("Photon_muOverlap", "overlapClean(Photon_phi, Photon_eta, Muon_phi[loose_muon], Muon_eta[loose_muon])")
     #photons = photons.Define("Photon_eleOverlap", "overlapClean(Photon_phi, Photon_eta, Electron_phi[loose_electron], Electron_eta[loose_electron])")
@@ -74,11 +75,14 @@ def photonAna(dataframe):
     #this preselection should be the same for both custom ID and standard EGM ID
     photons = dataframe.Define("Photon_preselection", "Photon_pt>20&&!Photon_pixelSeed&&abs(Photon_eta)<2.5&&(abs(Photon_eta)>1.57||abs(Photon_eta)<1.44)&&(Photon_isScEtaEE||Photon_isScEtaEB)")
     #photons = photons.Define("Photon_rho", "fixedGridRhoFastjetAll")
-    photons=photons.Define("Photon_PhIsoWP_EGM","phIsoWP(Photon_vidNestedWPBitmap)")
+    ph_iso_wp = "phIsoWP_Run3" if era in run3_eras else "phIsoWP_Run2"
+    photons=photons.Define("Photon_PhIsoWP_EGM",f"{ph_iso_wp}(Photon_vidNestedWPBitmap)")
     photons=photons.Define("Photon_PassPhIso_LooseEGM","Photon_PhIsoWP_EGM>=1")
     sieie_customEB,sieie_customEE=get_ID_val("sieie","custom")
     HoE_customEB,HoE_customEE=get_ID_val("hoe","custom")
-    photons=photons.Define("Photon_IdNoIso_custom",f"((Photon_isScEtaEB&&Photon_hoe<{HoE_customEB}&&Photon_sieie<{sieie_customEB})||(Photon_isScEtaEE&&Photon_hoe<{HoE_customEE}&&Photon_sieie<{sieie_customEE}))")
+    hoe = "Photon_hoe_PUcorr" if era in run3_eras else "Photon_hoe"
+    photons=photons.Define("Photon_IdNoIso_custom",f"(({hoe}<{HoE_customEB}&&Photon_isScEtaEB&&Photon_sieie<{sieie_customEB})||({hoe}<{HoE_customEE}&&Photon_isScEtaEE&&Photon_sieie<{sieie_customEE}))")
+    # obviousyly built run 3 EGM Photon ID with: https://twiki.cern.ch/twiki/bin/view/CMS/CutBasedPhotonIdentificationRun3
     for wp,level in egm_wp.items():
         photons=photons.Define(f"Photon_passEGM{wp}ID",f"Photon_cutBased>={level}")
         photons=photons.Define(f"Photon_passFullCutBasedID_{wp}EGM",f"Photon_preselection&&Photon_passEGM{wp}ID")
@@ -99,7 +103,6 @@ def ggH(data,phi_mass,sample):
         return df
 
     def isolation_vars(df, mass):
-        #pass isolation criteria using bitmap by EGM here: https://twiki.cern.ch/twiki/bin/view/CMS/CutBasedPhotonIdentificationRun2   
         for wp,level in egm_wp.items():
             for i in range(1,5):
                 df=df.Define(f"Photon_passPhIso_{wp}EGM_gamma{i}_m{mass}",f"Photon_PhIsoWP_EGM[best_4g_idx{i}_m{mass}]>={level}")
@@ -208,12 +211,12 @@ def ggH(data,phi_mass,sample):
 #+++++++++++++++++++++++++++++++++++++++++++++++
 
 
-    cols = "best_.*|sample_.*|^Photon_.*|^Electron_.*|Weight.*|^Gen.*|^weight.*|^TrigObj_.*|^event.*|^Pileup_.*|^run.*|gen.*|.*LHE.*|^PV.*|luminosity|Block|genWeight|HLT_passed|HLT_DoublePhoton33_CaloIdL|HLT_Diphoton30_18_R9IdL_AND_HE_AND_IsoCaloId|HLT_Diphoton30PV_18PV_R9Id_AND_IsoCaloId_AND_HE_R9Id_PixelVeto_Mass55|HLT_TriplePhoton_20_20_20_CaloIdLV2|sorted_photon_pt|Pass_L1_DoubleEG15_11|Pass_L1_DoubleEG16_11|Pass_L1_DoubleEG17_11|Pass_L1_DoubleEG_OR"
+    era=data['era']
+    cols = "best_.*|sample_.*|^Photon_.*|^Electron_.*|Weight.*|^Gen.*|^weight.*|^TrigObj_.*|^event.*|^Pileup_.*|^run.*|gen.*|.*LHE.*|^PV.*|luminosity|Block|genWeight|HLT_passed|sorted_photon_pt|Pass_L1_DoubleEG15_11|Pass_L1_DoubleEG16_11|Pass_L1_DoubleEG17_11|Pass_L1_DoubleEG_OR"
     actions=[]
 
     dataframe =load_meta_data(data)
     ggH=dataframe["Events"].Filter("isGoodLumi","passed_lumiFilter")
-    era=data['era']
 
     if data["isMC"]:
         ggH = ggH.Define("Pileup_weight", f"getPUweight(Pileup_nPU, puWeight_{era}, sample_isMC)")
@@ -224,7 +227,7 @@ def ggH(data,phi_mass,sample):
     #ggH=ggH.Filter("Sum(loose_muon==1)==0",'muon_veto')
     #ggH=ggH.Filter("Sum(loose_electron==1)==0",'electron_veto')
 
-    ggH=photonAna(ggH)
+    ggH=photonAna(ggH,era)
     ggH4g=ggH.Filter('nPhoton>3','at_least_4_photons')
     ggH4g=ggH4g.Filter('Sum(Photon_preselection==1)>3','at_least_3_preselected_photons')
 

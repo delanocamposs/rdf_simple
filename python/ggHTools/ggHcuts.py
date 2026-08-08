@@ -33,7 +33,13 @@ def preselection(mass):
     return " && ".join(f"Photon_preselection[best_4g_idx{i}_m{mass}]==1" for i in range(1, 5))
 
 def full_id(mass):
-    return f"best_4g_ID_m{mass}==1 && best_4g_passBitMap_Loose_iso_m{mass}==1"
+    return f"best_4g_ID_custom_m{mass}==1 && best_4g_passPhIso_LooseEGM_m{mass}==1"
+
+def egm_id(mass,wp):
+    wp=wp.capitalize()
+    if wp not in ["Loose","Medium","Tight"]:
+        raise KeyError("pick an acrtual working point. loose, medium or tight")
+    return f"best_4g_ID_EGM_{wp}_m{mass}==1"
 
 def pileup():
     return "abs(Pileup_weight)<=10"

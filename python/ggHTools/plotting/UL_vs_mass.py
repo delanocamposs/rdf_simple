@@ -4,9 +4,12 @@ import json
 import os
 import sys
 import argparse
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+import mplhep as mh
 from datacard.ggHdatacardmaker import main as make_datacard
 from ggHparameters import signal_path, bkg_path, lumi
-from plotting.style import tdrstyle
 
 
 # Run3 only has per-subera signal MC (no aggregated 2022/2023 signal files), so
@@ -100,7 +103,9 @@ def scan_mass_lifetime(masses, lifetimes, era, years, categories, bins, finalsta
     ROOT.gROOT.SetBatch(True)
     if results_json is None:
         results_json = f"limits_UL_vs_mass_{era}.json"
-    cats = [c for c in categories if c != "none"]
+    cats = list(categories)
+    if "none" in cats and len(cats) != 1:
+        raise ValueError("the inclusive 'none' category cannot be combined with exclusive categories")
     results = {era: {}}
     for mass in masses:
         for ctau in lifetimes:
@@ -134,34 +139,6 @@ def scan_mass_lifetime(masses, lifetimes, era, years, categories, bins, finalsta
     return results
 
 
-# ---------------------------------------------------------------------------
-# Plotting
-# ---------------------------------------------------------------------------
-
-def _band_graph(masses, lo, hi, color):
-    """Closed-polygon TGraph for a Brazil band between lo[] and hi[] vs masses[]."""
-    n = len(masses)
-    g = ROOT.TGraph(2 * n)
-    for i in range(n):
-        g.SetPoint(i, masses[i], hi[i])
-    for i in range(n):
-        g.SetPoint(n + i, masses[n - 1 - i], lo[n - 1 - i])
-    g.SetFillColor(color)
-    g.SetLineColor(color)
-    return g
-
-
-def _line_graph(masses, vals, style, width=2):
-    g = ROOT.TGraph(len(masses))
-    for i, (x, y) in enumerate(zip(masses, vals)):
-        g.SetPoint(i, x, y)
-    g.SetLineColor(ROOT.kBlack)
-    g.SetLineStyle(style)
-    g.SetLineWidth(width)
-    g.SetMarkerSize(0)
-    return g
-
-
 def _panel_arrays(panel):
     masses = sorted(int(m) for m in panel)
     needed = ["exp-2", "exp-1", "exp0", "exp+1", "exp+2"]
@@ -171,16 +148,11 @@ def _panel_arrays(panel):
 
 
 def plot_UL_vs_mass(results, era, ctaus, total_lumi=None, br_scale=1.0,
-                    ytitle="95% upper limit on BR(H#rightarrow#Phi#Phi)",
-                    extra_labels=("BR(#Phi#rightarrow#gamma#gamma) = 1",),
+                    ytitle=r"95% upper limit on $\mathcal{B}(H\rightarrow\Phi\Phi)$",
+                    extra_labels=(r"$\mathcal{B}(\Phi\rightarrow\gamma\gamma)=1$",),
                     yrange=None, outname=None):
     ROOT.gROOT.SetBatch(True)
-    tdrstyle.setTDRStyle()
-    ROOT.gStyle.SetOptStat(0)
-    # lighter, less distracting grid lines
-    ROOT.gStyle.SetGridColor(ROOT.kGray)
-    ROOT.gStyle.SetGridStyle(3)
-    ROOT.gStyle.SetGridWidth(1)
+    mh.style.use("CMS")
 
     if total_lumi is None:
         total_lumi = lumi.get(era)
@@ -191,147 +163,62 @@ def plot_UL_vs_mass(results, era, ctaus, total_lumi=None, br_scale=1.0,
         print("[plot_UL_vs_mass] no lifetimes with data to plot.")
         return
 
-    # gather scaled arrays per panel + global ranges
-    panels, all_y, all_m = [], [], []
+    panels = []
     for ct in ctaus:
         masses, arrays = _panel_arrays(year_res[str(ct)])
         arrays = {k: [v * br_scale for v in vals] for k, vals in arrays.items()}
         panels.append((ct, masses, arrays))
-        for vals in arrays.values():
-            all_y += vals
-        all_m += masses
 
-    if not all_y:
+    if not any(masses for _, masses, _ in panels):
         print("[plot_UL_vs_mass] no complete points to plot.")
         return
 
-    ymin,ymax =(min(all_y) * 0.5, max(all_y) * 2.0) if yrange is None else yrange
-    xlo,xhi= min(all_m), max(all_m)
-    lm,rm,tm,bm = 0.23, 0.035, 0.07, 0.14
-    denom = (1.0 / (1 - lm)) + max(n - 2, 0) + (1.0 / (1 - rm) if n > 1 else 0)
-    if n == 1:
-        denom = 1.0 / (1 - lm - rm)
-    fw = 1.0 / denom
-    widths = []
-    for i in range(n):
-        if n == 1:
-            widths.append(fw / (1 - lm - rm))
-        elif i == 0:
-            widths.append(fw / (1 - lm))
-        elif i == n - 1:
-            widths.append(fw / (1 - rm))
-        else:
-            widths.append(fw)
-    edges = [0.0]
-    for w in widths:
-        edges.append(edges[-1] + w)
-    edges = [e / edges[-1] for e in edges]
-
-    canv = ROOT.TCanvas("UL_vs_mass", "UL_vs_mass", 260 * max(n, 4), 600)
-    keep = []
-    green, yellow = ROOT.kGreen + 1, ROOT.kOrange
+    band2sigma_color = "#85d2fb"
+    band1sigma_color = "#ffde9c"
+    fig, axes = plt.subplots(1, n, sharey=True, squeeze=False,
+                             figsize=(7.5 * n, 20))
+    axes = axes[0]
+    plt.subplots_adjust(wspace=0)
 
     for i, (ct, masses, arrays) in enumerate(panels):
-        canv.cd()
-        pad = ROOT.TPad(f"pad{i}", "", edges[i], 0.0, edges[i + 1], 1.0)
-        pad.SetLeftMargin(lm if (i == 0 or n == 1) else 0.0)
-        pad.SetRightMargin(rm if (i == n - 1 or n == 1) else 0.0)
-        pad.SetTopMargin(tm)
-        pad.SetBottomMargin(bm)
-        pad.SetLogy()
-        pad.SetTicks(1, 1)
-        pad.SetGridx()
-        pad.SetGridy()
-        pad.Draw()
-        keep.append(pad)
-        pad.cd()
-
-        frame = pad.DrawFrame(xlo, ymin, xhi, ymax)
-        frame.GetXaxis().SetNdivisions(505)
-        frame.GetXaxis().SetTitleSize(0.06)
-        frame.GetXaxis().SetLabelSize(0.055)
-        frame.GetXaxis().SetLabelOffset(-0.005)
-        frame.GetYaxis().SetTitle(ytitle if i == 0 else "")
-        frame.GetYaxis().SetTitleSize(0.062)
-        frame.GetYaxis().SetTitleOffset(1.8)
-        if i != 0 and n > 1:
-            frame.GetYaxis().SetLabelSize(0.0)
-        else:
-            frame.GetYaxis().SetLabelSize(0.045)
-        keep.append(frame)
-
+        ax = axes[i]
         if masses:
-            g2 = _band_graph(masses, arrays["exp-2"], arrays["exp+2"], yellow)
-            g1 = _band_graph(masses, arrays["exp-1"], arrays["exp+1"], green)
-            g2.Draw("F same")
-            g1.Draw("F same")
-            gexp = _line_graph(masses, arrays["exp0"], 2)  # dashed expected
-            gexp.Draw("L same")
-            keep += [g2, g1, gexp]
+            ax.fill_between(masses, arrays["exp-2"], arrays["exp+2"],
+                            color=band2sigma_color, label=r"$\pm 2\sigma$")
+            ax.fill_between(masses, arrays["exp-1"], arrays["exp+1"],
+                            color=band1sigma_color, label=r"$\pm 1\sigma$")
+            ax.plot(masses, arrays["exp0"], linestyle="--", color="black",
+                    linewidth=4, label="Expected")
 
-        pad.RedrawAxis()
-        pad.RedrawAxis("g")  # grid lines on top of the bands
+        ax.text(0.5, 0.02, rf"$c\tau = {ct}\ \mathrm{{mm}}$",
+                transform=ax.transAxes, fontsize=40, ha="center", va="center",
+                bbox=dict(facecolor="white", edgecolor="none", alpha=0.5))
+        ax.tick_params(axis="both", which="major", labelsize=40)
+        ax.margins(x=0)
+        ax.minorticks_on()
 
-        cx = pad.GetLeftMargin() + 0.5 * (1 - pad.GetLeftMargin() - pad.GetRightMargin())
-        tl = ROOT.TLatex()
-        tl.SetNDC()
-        tl.SetTextFont(42)
-        tl.SetTextAlign(22)
-        tl.SetTextSize(0.07)
-        tl.DrawLatex(cx, bm + 0.04, f"c#tau = {ct} mm")
-        keep.append(tl)
+    axes[0].legend(loc="upper right", fontsize=40)
+    axes[-1].set_xlabel(r"$m_\Phi$ (GeV)", fontsize=40)
+    axes[0].set_ylabel(ytitle, fontsize=40)
+    axes[0].set_yscale("log")
+    if yrange is not None:
+        axes[0].set_ylim(*yrange)
 
-        # legend + extra labels only in the first panel
-        if i == 0 and masses:
-            leg = ROOT.TLegend(lm + 0.04, 0.65, lm + 1.1, 0.90)
-            leg.SetBorderSize(0)
-            leg.SetFillStyle(0)
-            leg.SetTextSize(0.06)
-            leg.AddEntry(g1, "#pm1#sigma", "f")
-            leg.AddEntry(g2, "#pm2#sigma", "f")
-            leg.AddEntry(gexp, "Expected", "l")
-            leg.Draw()
-            keep.append(leg)
+    mh.cms.label("Preliminary", data=True, rlabel="", ax=axes[0], loc=0,
+                 fontsize=60)
+    mh.cms.label(None, exp="", data=True, llabel="", ax=axes[-1], loc=0,
+                 lumi=f"{total_lumi / 1000:.2f}", com=13, fontsize=40)
+    for j, label in enumerate(extra_labels):
+        axes[0].text(0.5, 0.70 - 0.06 * j, label,
+                     transform=axes[0].transAxes, fontsize=40,
+                     ha="center", va="center",
+                     bbox=dict(facecolor="white", edgecolor="none", alpha=0.5))
 
-            lab = ROOT.TLatex()
-            lab.SetNDC()
-            lab.SetTextFont(42)
-            lab.SetTextSize(0.05)
-            for j, txt in enumerate(extra_labels):
-                lab.DrawLatex(lm + 0.04, 0.60 - 0.06 * j, txt)
-            keep.append(lab)
-
-    # header drawn on the canvas, spanning full width
-    canv.cd()
-    head = ROOT.TLatex()
-    head.SetNDC()
-    head.SetTextAlign(13)
-    cms_size = 0.05
-    head.SetTextFont(61)
-    head.SetTextSize(cms_size)
-    head.DrawLatex(0.04, 0.985, "CMS")
-    # place "Preliminary" right after "CMS": its NDC width scales with the (wide)
-    # canvas aspect ratio, so a fixed NDC offset would leave a large pixel gap.
-    cms_w = cms_size * (canv.GetWh() / canv.GetWw()) * 1.8
-    head.SetTextFont(52)
-    head.SetTextSize(0.038)
-    head.DrawLatex(0.04 + cms_w + 0.006, 0.983, "Preliminary")
-    head.SetTextFont(42)
-    head.SetTextAlign(33)
-    head.SetTextSize(0.038)
-    head.DrawLatex(1 - rm, 0.985, f"{total_lumi / 1000:.2f} fb^{{-1}} (13 TeV)")
-    # global x-axis title near the bottom-right
-    head.SetTextAlign(31)
-    head.SetTextSize(0.045)
-    head.DrawLatex(1 - rm, 0.035, "m_{#Phi} (GeV)")
-    keep.append(head)
-
-    canv.Update()
     if outname is None:
         outname = f"UL_vs_mass_{era}"
-    canv.SaveAs(f"{outname}.png")
-    canv.SaveAs(f"{outname}.pdf")
-    return canv
+    fig.savefig(f"{outname}.png", dpi=400, bbox_inches="tight")
+    fig.savefig(f"{outname}.pdf", bbox_inches="tight")
+    return fig
 
 
 if __name__ == "__main__":
@@ -348,6 +235,8 @@ if __name__ == "__main__":
                         help="1=run combined Run2+Run3")
     parser.add_argument("--rescan", action="store_true",
                         help="force re-running combine even if a cached json exists")
+    parser.add_argument("--inclusive", action="store_true",
+                        help="use one inclusive 'none' category instead of prompt/asym/displaced")
     args = parser.parse_args()
 
     if args.process_run2:
@@ -367,16 +256,18 @@ if __name__ == "__main__":
 
     masses = [15, 20, 30, 40, 50, 55]
     lifetimes = [0, 10, 20, 50, 100, 1000]
-    categories = ["prompt", "asym", "displaced"]
-    results_json = f"limits_UL_vs_mass_{era}.json"
+    categories = ["none"] if args.inclusive else ["prompt", "asym", "displaced"]
+    scan_label = f"{era}_inclusive" if args.inclusive else era
+    results_json = f"limits_UL_vs_mass_{scan_label}.json"
 
     # Re-use existing limits if present; otherwise run the (slow) combine scan.
     if os.path.exists(results_json) and not args.rescan:
         print(f"loading cached limits from {results_json} (pass --rescan to re-run)")
         results = load_results(results_json)
     else:
-        results = scan_mass_lifetime(masses, lifetimes, era, years, categories,
+        results = scan_mass_lifetime(masses, lifetimes, scan_label, years, categories,
                                      bins=[30, 110, 140], results_json=results_json)
 
     # br_scale: r->BR conversion applied to every y value (= reference BR=1e-4).
-    plot_UL_vs_mass(results, era, lifetimes, total_lumi=era_lumi(years), br_scale=1e-4)
+    plot_UL_vs_mass(results, scan_label, lifetimes, total_lumi=era_lumi(years),
+                    br_scale=1e-4)

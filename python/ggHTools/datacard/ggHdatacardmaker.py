@@ -28,7 +28,7 @@ def cleanup(year, finalstate, physics, cat, mass, lifetime):
     subprocess.run(["mv", f"rate_histos_m{mass}_ct{lifetime}_{cat}_{year}.root", f"m{mass}_ct{lifetime}_{cat}_{year}_{finalstate}_{physics}/"])
 #    subprocess.run(["mv", f"datacard_{physics}_{finalstate}_m{mass}_ct{lifetime}_{cat}_{year}.txt", f"{cat}_{year}_{finalstate}_{physics}/"])
     
-def main(paths, isMC, trees, var, categories, period, bins, lifetime, mass, finalstate="4g", physics="ggH", bkg_weight=True,order_fit=order_fit, order_gen=order_gen,lxy1=lxy1, lxy2=lxy2, lumi_scaling=1):
+def main(paths, isMC, trees, var, categories, period, bins, lifetime, mass, finalstate="4g", physics="ggH", bkg_weight=True,order_fit=order_fit, order_gen=order_gen,lxy1=lxy1, lxy2=lxy2, lumi_scaling=1, photon_id="custom"):
     ROOT.gROOT.SetBatch(True)
     year=period
 
@@ -66,7 +66,7 @@ def main(paths, isMC, trees, var, categories, period, bins, lifetime, mass, fina
     selections.reverse()
     #print(selections)
     
-    th1d_files, th1d_filenames, th1d_histos, th1d_histo_obj = datacardtools.sig_bkg_histos(paths, isMC, trees,mass,lifetime, selections, var, output_names, bins, year, histo_names, bkg_weight, lumi_scaling=lumi_scaling)
+    th1d_files, th1d_filenames, th1d_histos, th1d_histo_obj = datacardtools.sig_bkg_histos(paths, isMC, trees,mass,lifetime, selections, var, output_names, bins, year, histo_names, bkg_weight, lumi_scaling=lumi_scaling, photon_id=photon_id)
 
     i=0
     for cat in categories:
@@ -109,4 +109,3 @@ def main(paths, isMC, trees, var, categories, period, bins, lifetime, mass, fina
         cleanup(year, finalstate, physics, cat, mass, lifetime)
 
         i+=1
-

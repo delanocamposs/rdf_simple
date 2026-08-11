@@ -18,6 +18,18 @@ def egm_id(mass,wp):
         raise KeyError("pick an acrtual working point. loose, medium or tight")
     return f"best_4g_ID_EGM_{wp}_m{mass}==1"
 
+def photon_id(mass, selection="custom"):
+    if selection == "custom":
+        return custom_id(mass)
+    working_points = {
+        "LooseEGM": "Loose",
+        "MediumEGM": "Medium",
+        "TightEGM": "Tight",
+    }
+    if selection not in working_points:
+        raise KeyError(f"unknown photon ID selection: {selection}")
+    return egm_id(mass, working_points[selection])
+
 def pileup():
     return "abs(Pileup_weight)<=10"
 

@@ -33,9 +33,10 @@ BR = 1e-4
 smear_resolution = 0.264
 
 ##luminosities in pb^-1 from: https://twiki.cern.ch/twiki/bin/view/CMS/LumiRecommendationsRun2
-lumi = {"2017": 41480,
-        "2018": 59830,
-        "Run2": 41480 + 59830,
+##all values computed with brilcalc using goldenJSON for each year
+lumi = {"2017": 27461.448215758, # we only use eraas D-F, no longer B,C. not the full 41.48 fb^-1 for 2017
+        "2018": 59557.110211607,
+        "Run2": 27461.448215758 + 59557.110211607,
         "2022preEE": 7990,
         "2022postEE": 26680,
         "2022": 7990 + 26680,

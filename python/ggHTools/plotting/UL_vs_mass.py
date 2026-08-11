@@ -89,7 +89,8 @@ def _combine_cards(labelled_cards, out_txt):
 
 
 def scan_mass_lifetime(masses, lifetimes, era, years, categories, bins, finalstate="4g",
-                       physics="ggH", order_fit=4, results_json=None):
+                       physics="ggH", order_fit=4, results_json=None,
+                       photon_id="custom"):
     """Build per-(year, category) datacards, statistically combine them across the
     whole era, and run AsymptoticLimits over the mass/lifetime grid.
 
@@ -117,7 +118,7 @@ def scan_mass_lifetime(masses, lifetimes, era, years, categories, bins, finalsta
                     make_datacard(paths=[sig, bkg], isMC=[1, 0], trees=["ggH4g", "ggH4g"],
                                   var=f"best_4g_corr_mass_m{mass}", categories=[cat], period=year,
                                   bins=bins, lifetime=ctau, mass=mass, finalstate=finalstate,
-                                  physics=physics, order_fit=order_fit)
+                                  physics=physics, order_fit=order_fit, photon_id=photon_id)
                     card = f"datacard_{physics}_{finalstate}_m{mass}_ct{ctau}_{cat}_{year}.txt"
                     labelled_cards.append((f"{cat}_{year}", card))
 
@@ -237,6 +238,8 @@ if __name__ == "__main__":
                         help="force re-running combine even if a cached json exists")
     parser.add_argument("--inclusive", action="store_true",
                         help="use one inclusive 'none' category instead of prompt/asym/displaced")
+    parser.add_argument("--photon-id", choices=["custom", "LooseEGM", "MediumEGM", "TightEGM"],
+                        default="custom", help="photon ID applied to signal and sideband data")
     args = parser.parse_args()
 
     if args.process_run2:
@@ -258,6 +261,8 @@ if __name__ == "__main__":
     lifetimes = [0, 10, 20, 50, 100, 1000]
     categories = ["none"] if args.inclusive else ["prompt", "asym", "displaced"]
     scan_label = f"{era}_inclusive" if args.inclusive else era
+    if args.photon_id != "custom":
+        scan_label = f"{scan_label}_{args.photon_id}"
     results_json = f"limits_UL_vs_mass_{scan_label}.json"
 
     # Re-use existing limits if present; otherwise run the (slow) combine scan.
@@ -266,8 +271,11 @@ if __name__ == "__main__":
         results = load_results(results_json)
     else:
         results = scan_mass_lifetime(masses, lifetimes, scan_label, years, categories,
-                                     bins=[30, 110, 140], results_json=results_json)
+                                     bins=[30, 110, 140], results_json=results_json,
+                                     photon_id=args.photon_id)
 
     # br_scale: r->BR conversion applied to every y value (= reference BR=1e-4).
+    id_label = "Custom photon ID" if args.photon_id == "custom" else args.photon_id.replace("EGM", " EGM photon ID")
     plot_UL_vs_mass(results, scan_label, lifetimes, total_lumi=era_lumi(years),
-                    br_scale=1e-4)
+                    br_scale=1e-4,
+                    extra_labels=(r"$\mathcal{B}(\Phi\rightarrow\gamma\gamma)=1$", id_label))

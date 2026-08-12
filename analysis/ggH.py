@@ -216,7 +216,7 @@ def ggH(data,phi_mass,sample):
     actions=[]
 
     dataframe =load_meta_data(data)
-    ggH=dataframe["Events"].Filter("isGoodLumi","passed_lumiFilter")
+    ggH=dataframe["Events"].Filter("isGoodLumi && HLT_passed==1","passed_lumiFilter")
 
     if data["isMC"]:
         ggH = ggH.Define("Pileup_weight", f"getPUweight(Pileup_nPU, puWeight_{era}, sample_isMC)")

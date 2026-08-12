@@ -37,15 +37,14 @@ smear_resolution = 0.264
 lumi = {"2017": 27461.448215758, # we only use eraas D-F, no longer B,C. not the full 41.48 fb^-1 for 2017
         "2018": 59557.110211607,
         "Run2": 27461.448215758 + 59557.110211607,
-        "2022preEE": 7990,
-        "2022postEE": 26680,
-        "2022": 7990 + 26680,
-        "2023preBPix": 17960,
-        "2023postBPix": 9680,
-        "2023": 17960 + 9680,
-        #2024 = 110.11 +/- 1.77 fb^-1: https://indico.cern.ch/event/1617597/contributions/6820152/attachments/3184909/5675974/Run%202%20and%20Run%203%20combination.pdf
-        "2024": 110110,
-        "Run3": (7990 + 26680) + (17960 + 9680) + 110110}
+        "2022preEE": 8078.592654770,
+        "2022postEE": 26671.382348627,
+        "2022": 8078.592654770 + 26671.382348627,
+        "2023preBPix": 18579.703603083,
+        "2023postBPix": 9675.416900571,
+        "2023": 18579.703603083 + 9675.416900571,
+        "2024": 109143.514819334,
+        "Run3": (8078.592654770 + 26671.382348627) + (18579.703603083 + 9675.416900571) + 109143.514819334}
 
 #######IMPORTANT#######
 #since the cross section we use to scale the MC is both ggH+VBF combined, these xsec and lumi unc are derived from adding the unc from

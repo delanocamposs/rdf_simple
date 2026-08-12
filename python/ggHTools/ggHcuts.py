@@ -31,7 +31,8 @@ def photon_id(mass, selection="custom"):
     return egm_id(mass, working_points[selection])
 
 def pileup():
-    return "abs(Pileup_weight)<=10"
+    return "abs(Pileup_weight)<=10" ##this is genuinely a bandaid. found many MC events with large pileup weights 
+                                    ## and we werent sure why. plans to iron that out, but for now this will do
 
 def mc_weight(sumw):
     return f"(genWeight / {sumw}) * {signal_xsec} * {BR} * Pileup_weight"

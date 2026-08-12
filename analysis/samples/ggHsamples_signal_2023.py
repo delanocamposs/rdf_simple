@@ -26,7 +26,7 @@ for mass in [15,20,30,40,50,55]:
         if (mass==20 and ct==50) or (mass==20 and ct==1000) or (mass==40 and ct==20) or (mass==55 and ct==0) or (mass==55 and ct==20) or (mass==55 and ct==1000):
             samples_signal_2023[f"ggH4g_M{mass}_ctau{ct}_2023preBPix"] = {
                     'dataset': datasets[(mass,ct,"2023preBPix")],
-                    'triggers': ['HLT_DoublePhoton33_CaloIdL'],
+                    'triggers': ['HLT_Diphoton30_18_R9IdL_AND_HE_AND_IsoCaloId'],
                     'isMC':1,
                     'jobs':1,
                     'veto_triggers': [],
@@ -36,7 +36,7 @@ for mass in [15,20,30,40,50,55]:
 
             samples_signal_2023[f"ggH4g_M{mass}_ctau{ct}_2023postBPix"] = {
                     'dataset': datasets[(mass,ct,"2023postBPix")],
-                    'triggers': ['HLT_DoublePhoton33_CaloIdL'],
+                    'triggers': ['HLT_Diphoton30_18_R9IdL_AND_HE_AND_IsoCaloId'],
                     'isMC':1,
                     'jobs':1,
                     'veto_triggers': [],
@@ -46,7 +46,7 @@ for mass in [15,20,30,40,50,55]:
         else:
             samples_signal_2023[f"ggH4g_M{mass}_ctau{ct}_2023preBPix"] = {
                     'dataset': f"/GluGluHTo2LongLivedTo4G-ctau-{ct}mm-MFF-{mass}-MH-125_TuneCP5_13p6TeV_powheg-pythia8/Run3Summer23NanoAODv12-130X_mcRun3_2023_realistic_v15-v3/NANOAODSIM",
-                    'triggers': ['HLT_DoublePhoton33_CaloIdL'],
+                    'triggers': ['HLT_Diphoton30_18_R9IdL_AND_HE_AND_IsoCaloId'],
                     'isMC':1,
                     'jobs':1,
                     'veto_triggers': [],
@@ -56,11 +56,10 @@ for mass in [15,20,30,40,50,55]:
 
             samples_signal_2023[f"ggH4g_M{mass}_ctau{ct}_2023postBPix"] = {
                     'dataset': f"/GluGluHTo2LongLivedTo4G-ctau-{ct}mm-MFF-{mass}-MH-125_TuneCP5_13p6TeV_powheg-pythia8/Run3Summer23BPixNanoAODv12-130X_mcRun3_2023_realistic_postBPix_v6-v3/NANOAODSIM",
-                    'triggers': ['HLT_DoublePhoton33_CaloIdL'],
+                    'triggers': ['HLT_Diphoton30_18_R9IdL_AND_HE_AND_IsoCaloId'],
                     'isMC':1,
                     'jobs':1,
                     'veto_triggers': [],
                     'era': '2023postBPix',
                     'sigma': 1.0,
                     'customNanoAOD': True}
-

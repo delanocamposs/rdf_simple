@@ -1,7 +1,6 @@
 samples_data_2022 = {
 'EGamma_2022B':{'dataset':'/EGamma/Run2022B-22Sep2023-v2/NANOAOD',
-                    'triggers':['HLT_Diphoton30_18_R9IdL_AND_HE_AND_IsoCaloId_NoPixelVeto'], ####EGAMMA POG HAS NO CONSISTENCY IN ANytHIGNG!! WHY 
-                                                                                            ##### IS THIS NOT AVAILABLE IN ERA B BUT AVAILABLE IN ERAS C-G!!!!!!!!!!!!!!!!!!
+                    'triggers':['HLT_Diphoton30_18_R9IdL_AND_HE_AND_IsoCaloId_NoPixelVeto'], ##of course B does not have the trigger available that all other C-G do
                     'veto_triggers':[],
                     'isMC':0,
                     'era': '2022preEE',

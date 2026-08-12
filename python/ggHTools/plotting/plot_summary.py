@@ -10,7 +10,7 @@ import ggHcuts as cuts
 from plotting.plottingtools import fetchError, getPoisson, getPoisson2, save_histos
 ROOT.gROOT.SetBatch(True) 
 
-def run(mass, ctau, year, cat):
+def run(mass, ctau, year, cat, photon_id="custom"):
     tdrstyle.setTDRStyle()
     CMS_lumi.writeExtraText = True
     CMS_lumi.extraText="Work in Progress"
@@ -45,7 +45,7 @@ def run(mass, ctau, year, cat):
 
     bkg=bkg_path(year)
     data_ID_df=ROOT.RDataFrame("ggH4g", bkg)
-    data_ID_df=data_ID_df.Filter(cuts.combine(cuts.preselection(mass), cuts.trigger(), cuts.dxy_valid(mass), cuts.custom_id(mass), cuts.blind(mass), cuts.categories(mass)[cat]))
+    data_ID_df=data_ID_df.Filter(cuts.combine(cuts.preselection(mass), cuts.trigger(), cuts.dxy_valid(mass), cuts.photon_id(mass, photon_id), cuts.blind(mass), cuts.categories(mass)[cat]))
     h_data=data_ID_df.Histo1D(("data_hist", f"data_hist;4#gamma mass;Events", bins_data[0], bins_data[1], bins_data[2]), f"{var}")
 
     #signal histogram built separately for each year.
@@ -61,7 +61,7 @@ def run(mass, ctau, year, cat):
         signal_df_y = ROOT.RDataFrame("ggH4g", sig_y)
         weight_y = cuts.mc_weight(sumw_y)
         signal_df_y = signal_df_y.Define("event_weight", weight_y)
-        signal_df_y = signal_df_y.Filter(cuts.combine(cuts.trigger(), cuts.dxy_valid(mass), cuts.custom_id(mass), cuts.preselection(mass), cuts.pileup(), cuts.categories(mass)[cat]))
+        signal_df_y = signal_df_y.Filter(cuts.combine(cuts.trigger(), cuts.dxy_valid(mass), cuts.photon_id(mass, photon_id), cuts.preselection(mass), cuts.pileup(), cuts.categories(mass)[cat]))
         h_y = signal_df_y.Histo1D((f"sig_tmp_{y}", f"sig_tmp_{y}", bins_sig[0], bins_sig[1], bins_sig[2]), var, "event_weight")
         h_y_clone = h_y.GetValue().Clone(f"sig_scaled_{y}")
         h_y_clone.Scale(lumi[y])
@@ -80,9 +80,11 @@ def run(mass, ctau, year, cat):
             return self._h.Integral()
     h_sig = HistProxy(h_sig_total)
 
-    save_histos(mass, year, ctau, h_data, h_sig)
-    sresult, bresult=ggHfitter.fitSIGBKG(f"sig_bkg_summary_histos_m{mass}_ct{ctau}_year{year}.root", "signal_hist", "data_hist", f"SB_fit_result_m{mass}_ct{ctau}_year{year}.root", order=order_fit)
-    SB_file=ROOT.TFile.Open(f"SB_fit_result_m{mass}_ct{ctau}_year{year}.root")
+    id_suffix = "" if photon_id == "custom" else f"_{photon_id}"
+    hist_file = save_histos(mass, year, ctau, h_data, h_sig, tag=photon_id if id_suffix else "")
+    fit_file = f"SB_fit_result_m{mass}_ct{ctau}_year{year}{id_suffix}.root"
+    sresult, bresult=ggHfitter.fitSIGBKG(hist_file, "signal_hist", "data_hist", fit_file, order=order_fit)
+    SB_file=ROOT.TFile.Open(fit_file)
     w = SB_file.Get("w")
     x= w.var("mass")
     s_model = w.pdf("model_s")
@@ -218,8 +220,10 @@ def run(mass, ctau, year, cat):
     cate.SetTextSize(0.06)
     cate.DrawLatexNDC(0.55, 0.84, rf"c#tau = {ctau} mm, m_{{#phi}} = {mass} GeV")
     cat_label = {"asym": "asymmetric", "none": "combined", "all": "combined"}.get(cat, cat)
-    cate.DrawLatexNDC(0.55, 0.78, f"category: {cat_label}")
-    cate.DrawLatexNDC(0.55, 0.72, f"order = {order_fit}")
+    #cate.DrawLatexNDC(0.55, 0.78, f"category: {cat_label}")
+    #cate.DrawLatexNDC(0.55, 0.78, f"order = {order_fit}")
+    id_label = "Custom photon ID" if photon_id == "custom" else photon_id.replace("EGM", " EGM photon ID")
+    cate.DrawLatexNDC(0.55, 0.66, id_label)
     leg.AddEntry(gres1,"Blinded Data", "pe")
     leg.AddEntry("sb_curve","S+B fit sum", "L")
     leg.AddEntry("bkg_curve", "B component", "L")
@@ -366,12 +370,12 @@ def run(mass, ctau, year, cat):
     CMS_lumi.cmsTextSize = 0.85
     CMS_lumi.lumiTextSize = 0.6
     CMS_lumi.lumiTextRightOffset = 0.0
-    CMS_lumi.CMS_lumi(pad1, iPeriod, 0, year, lumi[year], lumi_13TeV=f"{lumi[year]/1000:.1f}", extraText="Work in Progress")
+    CMS_lumi.CMS_lumi(pad1, iPeriod, 0, year, lumi[year], lumi_13TeV=f"{lumi[year]/1000:.2f}", extraText="Work in Progress")
     can.Update()
     can.cd()
     can.Update()
-    can.SaveAs(f"summary_plot_m{mass}_ct{ctau}_{year}_{cat}.png")
-    can.SaveAs(f"summary_plot_m{mass}_ct{ctau}_{year}_{cat}.pdf")
+    can.SaveAs(f"summary_plot_m{mass}_ct{ctau}_{year}_{cat}{id_suffix}.png")
+    can.SaveAs(f"summary_plot_m{mass}_ct{ctau}_{year}_{cat}{id_suffix}.pdf")
     
     can.Close()
     SB_file.Close()
@@ -386,8 +390,10 @@ if __name__=="__main__":
     parser.add_argument("-m","--mass", type=str, help="mass of sample")
     parser.add_argument("-ct","--ctau", type=str, help="lifetime of sample")
     parser.add_argument("-y","--year", type=str, help="year of MC and data")
+    parser.add_argument("-c", "--category", choices=["prompt", "asym", "displaced", "none"], default="none")
+    parser.add_argument("--photon-id", choices=["custom", "LooseEGM", "MediumEGM", "TightEGM"], default="custom")
     args = parser.parse_args()
     mass=args.mass
     lifetime=args.ctau
     year=args.year
-    run(mass, lifetime, year)
+    run(mass, lifetime, year, args.category, args.photon_id)

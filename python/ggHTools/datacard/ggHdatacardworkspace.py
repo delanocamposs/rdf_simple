@@ -105,7 +105,7 @@ class DatacardWorkspace:
             order += 1
         if order == 0:
             raise ValueError(f"No Bernstein coefficients (c_0, c_1, ...) found in {jsonFile}")
-        coeffNames = [f"c_{i}_bkg" for i in range(order)]
+        coeffNames=[f"c_{i}_bkg_{self.tag}" for i in range(order)]
         keys = [f"c_{i}" for i in range(order)]
         clist=ROOT.RooArgList()
         for coeffName, key in zip(coeffNames, keys):

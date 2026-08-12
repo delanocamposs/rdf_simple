@@ -39,9 +39,11 @@ def getPoisson2(h, scale):
     return gRate
 
 
-def save_histos(mass, year, ctau, hist1, hist2):
-    outfile=ROOT.TFile(f"sig_bkg_summary_histos_m{mass}_ct{ctau}_year{year}.root", "RECREATE")
+def save_histos(mass, year, ctau, hist1, hist2, tag=""):
+    suffix = f"_{tag}" if tag else ""
+    filename = f"sig_bkg_summary_histos_m{mass}_ct{ctau}_year{year}{suffix}.root"
+    outfile=ROOT.TFile(filename, "RECREATE")
     hist1.GetValue().Write()
     hist2.GetValue().Write()
     outfile.Close()
-    return
+    return filename

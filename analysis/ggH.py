@@ -75,9 +75,17 @@ def photonAna(dataframe, era):
     #this preselection should be the same for both custom ID and standard EGM ID
     photons = dataframe.Define("Photon_preselection", "Photon_pt>20&&!Photon_pixelSeed&&abs(Photon_eta)<2.5&&(abs(Photon_eta)>1.57||abs(Photon_eta)<1.44)&&(Photon_isScEtaEE||Photon_isScEtaEB)")
     #photons = photons.Define("Photon_rho", "fixedGridRhoFastjetAll")
-    ph_iso_wp = "phIsoWP_Run3" if era in run3_eras else "phIsoWP_Run2"
+    ph_iso_wp="phIsoWP_Run3" if era in run3_eras else "phIsoWP_Run2"
+    ch_iso_wp="chIsoWP_Run3" if era in run3_eras else "chIsoWP_Run2"
+    neu_iso_wp="hcalIsoWP_Run3" if era in run3_eras else "neuIsoWP_Run2"
     photons=photons.Define("Photon_PhIsoWP_EGM",f"{ph_iso_wp}(Photon_vidNestedWPBitmap)")
+    photons=photons.Define("Photon_ChIsoWP_EGM",f"{ch_iso_wp}(Photon_vidNestedWPBitmap)")
+    photons=photons.Define("Photon_NeuIsoWP_EGM",f"{neu_iso_wp}(Photon_vidNestedWPBitmap)")
+    photons=photons.Define("Photon_FullIsoWP_EGM","fullIsoWP(Photon_vidNestedWPBitmap)")
     photons=photons.Define("Photon_PassPhIso_LooseEGM","Photon_PhIsoWP_EGM>=1")
+    photons=photons.Define("Photon_PassChIso_LooseEGM","Photon_ChIsoWP_EGM>=1")
+    photons=photons.Define("Photon_PassNeuIso_LooseEGM","Photon_NeuIsoWP_EGM>=1")
+    photons=photons.Define("Photon_PassFullIso_LooseEGM","Photon_FullIsoWP_EGM>=1")
     sieie_customEB,sieie_customEE=get_ID_val("sieie","custom")
     HoE_customEB,HoE_customEE=get_ID_val("hoe","custom")
     hoe = "Photon_hoe_PUcorr" if era in run3_eras else "Photon_hoe"
@@ -106,11 +114,15 @@ def ggH(data,phi_mass,sample):
         for wp,level in egm_wp.items():
             for i in range(1,5):
                 df=df.Define(f"Photon_passPhIso_{wp}EGM_gamma{i}_m{mass}",f"Photon_PhIsoWP_EGM[best_4g_idx{i}_m{mass}]>={level}")
- 
+                df=df.Define(f"Photon_passChIso_{wp}EGM_gamma{i}_m{mass}",f"Photon_ChIsoWP_EGM[best_4g_idx{i}_m{mass}]>={level}")
+                df=df.Define(f"Photon_passNeuIso_{wp}EGM_gamma{i}_m{mass}",f"Photon_NeuIsoWP_EGM[best_4g_idx{i}_m{mass}]>={level}")
+                df=df.Define(f"Photon_passFullIso_{wp}EGM_gamma{i}_m{mass}",f"Photon_FullIsoWP_EGM[best_4g_idx{i}_m{mass}]>={level}")
+
         #EVENT-LEVEL BOOLEAN IF BEST 4 PHOTONS PASS LOOSE EGM ISOLATION. THIS IS THE RECOMMENDED METHOD TO ISO ID.
         for wp in egm_wp:
-            decisions=" && ".join(f"Photon_passPhIso_{wp}EGM_gamma{i}_m{mass}" for i in range(1,5))
-            df=df.Define(f"best_4g_passPhIso_{wp}EGM_m{mass}",decisions)
+            for component in ["PhIso","ChIso","NeuIso","FullIso"]:
+                decisions=" && ".join(f"Photon_pass{component}_{wp}EGM_gamma{i}_m{mass}" for i in range(1,5))
+                df=df.Define(f"best_4g_pass{component}_{wp}EGM_m{mass}",decisions)
         return df
 
     def corrected_kinematic_vars(df, mass):
@@ -182,7 +194,7 @@ def ggH(data,phi_mass,sample):
         gamma_labels = {1: 'phi1_gamma1', 2: 'phi1_gamma2', 3: 'phi2_gamma1', 4: 'phi2_gamma2'}
         preselection_str=" && ".join(f"(Photon_preselection[raw_best_4g_m{mass}[{i}]]==1)" for i in range(24,28))
         idnoiso_str=" && ".join(f"(Photon_IdNoIso_custom[raw_best_4g_m{mass}[{i}]]==1)" for i in range(24,28))
-        iso_str=" && ".join(f"(Photon_PassPhIso_LooseEGM[raw_best_4g_m{mass}[{i}]]==1)" for i in range(24,28))
+        iso_str=" && ".join(f"(Photon_PassFullIso_LooseEGM[raw_best_4g_m{mass}[{i}]]==1)" for i in range(24,28))
         df=df.Define(f'best_4g_ID_custom_m{mass}',f'{preselection_str} && {idnoiso_str} && {iso_str}')
         for wp in egm_wp:
             id_flags=[f'Photon_passFullCutBasedID_{wp}EGM[best_4g_idx{i}_m{mass}]' for i in range(1,5)]
@@ -252,7 +264,7 @@ def ggH(data,phi_mass,sample):
 
     #ggH4g=ggH4g.Filter(f'sample_isMC==1 | non_MC_cut_m{m}==1','blinding_data_samples')
 
-    ggH4g=ggH4g.Define("Photon_passFullCutBasedID_custom","Photon_preselection==1&&Photon_IdNoIso_custom==1&&Photon_PassPhIso_LooseEGM==1")
+    ggH4g=ggH4g.Define("Photon_passFullCutBasedID_custom","Photon_preselection==1&&Photon_IdNoIso_custom==1&&Photon_PassFullIso_LooseEGM==1")
     ggH4g=scale_factors(ggH4g,era)
     actions.append(ggH4g.Snapshot('ggH4g', f"{sample}_ggH4g.root", cols, opts))
 

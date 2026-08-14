@@ -202,3 +202,51 @@ RVecI phIsoWP_Run3(RVecI bitmaps){
   }
   return out;
 }
+
+RVecI chIsoWP_Run2(RVecI bitmaps){
+  RVecI out;
+  out.reserve(bitmaps.size());
+  for (size_t i=0;i<bitmaps.size();i++){
+    out.emplace_back((bitmaps[i]>>8)&3);
+  }
+  return out;
+}
+
+RVecI neuIsoWP_Run2(RVecI bitmaps){
+  RVecI out;
+  out.reserve(bitmaps.size());
+  for (size_t i=0;i<bitmaps.size();i++){
+    out.emplace_back((bitmaps[i]>>10)&3);
+  }
+  return out;
+}
+
+RVecI chIsoWP_Run3(RVecI bitmaps){
+  RVecI out;
+  out.reserve(bitmaps.size());
+  for (size_t i=0;i<bitmaps.size();i++){
+    out.emplace_back((bitmaps[i]>>8)&3);
+  }
+  return out;
+}
+
+RVecI hcalIsoWP_Run3(RVecI bitmaps){
+  RVecI out;
+  out.reserve(bitmaps.size());
+  for (size_t i=0;i<bitmaps.size();i++){
+    out.emplace_back((bitmaps[i]>>12)&3);
+  }
+  return out;
+}
+
+RVecI fullIsoWP(RVecI bitmaps){
+  RVecI out;
+  out.reserve(bitmaps.size());
+  for (size_t i=0;i<bitmaps.size();i++){
+    int a=(bitmaps[i]>>8)&3;
+    int b=(bitmaps[i]>>10)&3;
+    int c=(bitmaps[i]>>12)&3;
+    out.emplace_back(std::min(a,std::min(b,c)));
+  }
+  return out;
+}

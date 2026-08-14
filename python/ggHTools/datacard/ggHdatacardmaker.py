@@ -28,7 +28,7 @@ def cleanup(year, finalstate, physics, cat, mass, lifetime):
     subprocess.run(["mv", f"rate_histos_m{mass}_ct{lifetime}_{cat}_{year}.root", f"m{mass}_ct{lifetime}_{cat}_{year}_{finalstate}_{physics}/"])
 #    subprocess.run(["mv", f"datacard_{physics}_{finalstate}_m{mass}_ct{lifetime}_{cat}_{year}.txt", f"{cat}_{year}_{finalstate}_{physics}/"])
     
-def main(paths, isMC, trees, var, categories, period, bins, lifetime, mass, finalstate="4g", physics="ggH", bkg_weight=True,order_fit=order_fit, order_gen=order_gen,lxy1=lxy1, lxy2=lxy2, lumi_scaling=1, photon_id="custom"):
+def main(paths, isMC, trees, var, categories, period, bins, lifetime, mass, finalstate="4g", physics="ggH", bkg_weight=True,order_fit=order_fit, order_gen=order_gen,lxy1=lxy1, lxy2=lxy2, lumi_scaling=1, photon_id="custom", signal_lumis=None):
     ROOT.gROOT.SetBatch(True)
     year=period
 
@@ -46,17 +46,31 @@ def main(paths, isMC, trees, var, categories, period, bins, lifetime, mass, fina
     histo_names = []
 
     for i in range(len(categories)):
-        pair = ["hist{}".format(2*i+1), "hist{}".format(2*i+2)]
-        histo_names.append(pair)
+        histo_names.append([f"hist_{i}_{j}" for j in range(len(paths))])
 
     xsec_quad_up = np.sqrt((xsec_unc["ggH"][0])**2+(xsec_unc["VBF"][0])**2)
     xsec_quad_down = np.sqrt((xsec_unc["ggH"][1])**2+(xsec_unc["VBF"][1])**2)
     PDF_alphas_unc = np.sqrt((pdf_alphas_unc["ggH"][0])**2 + (pdf_alphas_unc["VBF"][0])**2)
         
-    signal_samples={}
-    for j in isMC:
-        if isMC[j]==1:
-            signal_samples[paths[j]]=trees[j]
+    signal_indices = [i for i, flag in enumerate(isMC) if flag]
+    background_indices = [i for i, flag in enumerate(isMC) if not flag]
+    if not signal_indices:
+        raise ValueError("at least one signal input is required")
+    if len(background_indices) != 1:
+        raise ValueError("exactly one data/background input is required")
+    background_index = background_indices[0]
+    if signal_lumis is not None and len(signal_lumis) != len(signal_indices):
+        raise ValueError("signal_lumis must have one value per signal input")
+    file_scalings = None
+    if signal_lumis is not None:
+        file_scalings = []
+        signal_number = 0
+        for flag in isMC:
+            if flag:
+                file_scalings.append(signal_lumis[signal_number])
+                signal_number += 1
+            else:
+                file_scalings.append(1.0)
 
     selections = []
     for cat in cat_dict:    
@@ -66,24 +80,34 @@ def main(paths, isMC, trees, var, categories, period, bins, lifetime, mass, fina
     selections.reverse()
     #print(selections)
     
-    th1d_files, th1d_filenames, th1d_histos, th1d_histo_obj = datacardtools.sig_bkg_histos(paths, isMC, trees,mass,lifetime, selections, var, output_names, bins, year, histo_names, bkg_weight, lumi_scaling=lumi_scaling, photon_id=photon_id)
+    th1d_files, th1d_filenames, th1d_histos, th1d_histo_obj = datacardtools.sig_bkg_histos(paths, isMC, trees,mass,lifetime, selections, var, output_names, bins, year, histo_names, bkg_weight, lumi_scaling=lumi_scaling, photon_id=photon_id, file_scalings=file_scalings)
 
     i=0
     for cat in categories:
-        N_sb=th1d_histo_obj[i][1].Integral()
+        N_sb=th1d_histo_obj[i][background_index].Integral()
         dcm_cat_year = DatacardWorkspace(finalstate, cat, period, lifetime, mass, lumi[year], physics)
+
+        signal_hist_name = "signal_combined"
+        signal_hist = th1d_histo_obj[i][signal_indices[0]].GetValue().Clone(signal_hist_name)
+        signal_hist.SetDirectory(0)
+        for signal_index in signal_indices[1:]:
+            signal_hist.Add(th1d_histo_obj[i][signal_index].GetValue())
+        rate_file = ROOT.TFile(th1d_filenames[i], "UPDATE")
+        rate_file.cd()
+        signal_hist.Write(signal_hist_name, ROOT.TObject.kOverwrite)
+        rate_file.Close()
 
         #we need to fit bkg twice because one fit is used to generate the data and one fit is used for combine fit
         #two jsons with parameters: fit and gen. gen=used to generate data. fit=used in combine.
-        ratio = ggHfitter.fitBKG(f"{th1d_filenames[i]}", f"{th1d_histos[i][1]}", f"fit_bkg_m{mass}_ct{lifetime}_{cat}_{year}_fit.root", order=order_fit)
+        ratio = ggHfitter.fitBKG(f"{th1d_filenames[i]}", f"{th1d_histos[i][background_index]}", f"fit_bkg_m{mass}_ct{lifetime}_{cat}_{year}_fit.root", order=order_fit)
         datacardtools.extract_JSON(f"fit_bkg_m{mass}_ct{lifetime}_{cat}_{year}_fit.root", "w", f"bkg_parameters_m{mass}_ct{lifetime}_{cat}_{year}_fit.json")
 
-        ggHfitter.fitBKG(f"{th1d_filenames[i]}", f"{th1d_histos[i][1]}", f"fit_bkg_m{mass}_ct{lifetime}_{cat}_{year}_gen.root", order=order_gen)
+        ggHfitter.fitBKG(f"{th1d_filenames[i]}", f"{th1d_histos[i][background_index]}", f"fit_bkg_m{mass}_ct{lifetime}_{cat}_{year}_gen.root", order=order_gen)
         datacardtools.extract_JSON(f"fit_bkg_m{mass}_ct{lifetime}_{cat}_{year}_gen.root", "w", f"bkg_parameters_m{mass}_ct{lifetime}_{cat}_{year}_gen.json")
 
         bkg_rate=N_sb*ratio
 
-        ggHfitter.fitSIG(f"{th1d_filenames[i]}", f"{th1d_histos[i][0]}", f"fit_sig_m{mass}_ct{lifetime}_{cat}_{year}.root")
+        ggHfitter.fitSIG(f"{th1d_filenames[i]}", signal_hist_name, f"fit_sig_m{mass}_ct{lifetime}_{cat}_{year}.root")
         datacardtools.extract_JSON(f"fit_sig_m{mass}_ct{lifetime}_{cat}_{year}.root", "w", f"sig_parameters_m{mass}_ct{lifetime}_{cat}_{year}.json")
 
         dcm_cat_year.addDCB("signal", "mass", f"sig_parameters_m{mass}_ct{lifetime}_{cat}_{year}.json", resolution={f"nuisance_smear_m{mass}_ct{lifetime}_{cat}_{year}":str(smear_resolution)})
@@ -96,7 +120,7 @@ def main(paths, isMC, trees, var, categories, period, bins, lifetime, mass, fina
         dcm_cat_year.addSystematic(name=f"bkg_rate_m{mass}_ct{lifetime}_{cat}_{year}", kind = "rateParam", values=[dcm_cat_year.tag, "background", "1", "[0,10]"])
 
         dcm_cat_year.addFixedYield(name="background", ID=1, value=bkg_rate)
-        dcm_cat_year.addFixedYieldFromFile(name="signal", ID=0, filename=th1d_filenames[i], histoName=th1d_histos[i][0], lumi=True)
+        dcm_cat_year.addFixedYieldFromFile(name="signal", ID=0, filename=th1d_filenames[i], histoName=signal_hist_name, lumi=(signal_lumis is None))
 
         workspace_file_cat_year = "datacardInputs_"+dcm_cat_year.tag+".root"
 

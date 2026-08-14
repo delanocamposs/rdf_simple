@@ -18,7 +18,7 @@ ROOT.gROOT.SetBatch(False)
 
 
 
-def sig_bkg_histos(files, isMC, trees, mass, lifetime, selections, var, output_names, bins, year, histo_names=[], bkg_weight=True, lumi_scaling=1, photon_id="custom"):
+def sig_bkg_histos(files, isMC, trees, mass, lifetime, selections, var, output_names, bins, year, histo_names=[], bkg_weight=True, lumi_scaling=1, photon_id="custom", file_scalings=None):
     '''
     files = path to the root data/MC files to construct the histos from
     isMC = is the file MC or not (matters because it gets weighted and scaled correctly if it is)
@@ -34,6 +34,11 @@ def sig_bkg_histos(files, isMC, trees, mass, lifetime, selections, var, output_n
 
     sig_bkg_histos(["path/to/MC", "path/to/bkg"], [1, 0], ["ggH4g", "ggH4g"], ["best_4g_phi1_dxy_m{mass}>50", "best_4g_phi2_dxy_m{mass}<50"], "best_4g_cor_mass_m{mass}", ["output1.root", "output2.root"], [["hist1", "hist2"], ["hist3", "hist4"]])
     '''
+
+    if file_scalings is None:
+        file_scalings = [lumi_scaling] * len(files)
+    if len(file_scalings) != len(files):
+        raise ValueError("file_scalings must have one value per input file")
 
     outputs=[]
     sumw_dict={}
@@ -73,13 +78,13 @@ def sig_bkg_histos(files, isMC, trees, mass, lifetime, selections, var, output_n
                 weight_formula_k = cuts.mc_weight(sumw_dict[files[k]])
                 rdf_j_k = rdf_j_k.Filter(cuts.combine(cuts.preselection(mass), cuts.photon_id(mass, photon_id), cuts.pileup())).Define("event_weight", weight_formula_k)
                 hist_j_k = rdf_j_k.Histo1D((f"{histo_names[j][k]}", f"{j}_{k};{var};Events", bins[0], bins[1], bins[2]), f"{var}", "event_weight")
-                hist_j_k.Scale(lumi_scaling)
+                hist_j_k.Scale(file_scalings[k])
                 hist_j_k.Write()
                 histo_obj[j].append(hist_j_k)
             else:
                 rdf_j_k = rdf_j_k.Filter(cuts.combine(cuts.preselection(mass), cuts.photon_id(mass, photon_id), cuts.sidebands(mass)))
                 hist_j_k = rdf_j_k.Histo1D((f"{histo_names[j][k]}", f"{j}_{k};{var};Events", fit_bins[0], fit_bins[1], fit_bins[2]), f"{var}")
-                hist_j_k.Scale(lumi_scaling)
+                hist_j_k.Scale(file_scalings[k])
                 hist_j_k.Write()
                 histo_obj[j].append(hist_j_k)
         output_file_j.Close()

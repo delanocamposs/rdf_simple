@@ -194,8 +194,12 @@ def ggH(data,phi_mass,sample):
         gamma_labels = {1: 'phi1_gamma1', 2: 'phi1_gamma2', 3: 'phi2_gamma1', 4: 'phi2_gamma2'}
         preselection_str=" && ".join(f"(Photon_preselection[raw_best_4g_m{mass}[{i}]]==1)" for i in range(24,28))
         idnoiso_str=" && ".join(f"(Photon_IdNoIso_custom[raw_best_4g_m{mass}[{i}]]==1)" for i in range(24,28))
-        iso_str=" && ".join(f"(Photon_PassFullIso_LooseEGM[raw_best_4g_m{mass}[{i}]]==1)" for i in range(24,28))
-        df=df.Define(f'best_4g_ID_custom_m{mass}',f'{preselection_str} && {idnoiso_str} && {iso_str}')
+        iso_str=" && ".join(f"(Photon_PassPhIso_LooseEGM[raw_best_4g_m{mass}[{i}]]==1)" for i in range(24,28))
+        chiso_str=" && ".join(f"(Photon_PassChIso_LooseEGM[raw_best_4g_m{mass}[{i}]]==1)" for i in range(24,28))
+        fulliso_str=" && ".join(f"(Photon_PassFullIso_LooseEGM[raw_best_4g_m{mass}[{i}]]==1)" for i in range(24,28))
+        df=df.Define(f'best_4g_ID_custom_m{mass}',f'{preselection_str} && {idnoiso_str} && {fulliso_str}')
+        df=df.Define(f'best_4g_ID_customPhIsoOnly_m{mass}',f'{preselection_str} && {idnoiso_str} && {iso_str}')
+        df=df.Define(f'best_4g_ID_customChIso_m{mass}',f'{preselection_str} && {idnoiso_str} && {iso_str} && {chiso_str}')
         for wp in egm_wp:
             id_flags=[f'Photon_passFullCutBasedID_{wp}EGM[best_4g_idx{i}_m{mass}]' for i in range(1,5)]
             for i,flag in enumerate(id_flags,1):
@@ -224,7 +228,7 @@ def ggH(data,phi_mass,sample):
 
 
     era=data['era']
-    cols = "best_.*|sample_.*|^Photon_.*|^Electron_.*|Weight.*|^Gen.*|^weight.*|^TrigObj_.*|^event.*|^Pileup_.*|^run.*|gen.*|.*LHE.*|^PV.*|luminosity|Block|genWeight|HLT_passed|sorted_photon_pt|Pass_L1_DoubleEG15_11|Pass_L1_DoubleEG16_11|Pass_L1_DoubleEG17_11|Pass_L1_DoubleEG_OR"
+    cols = "best_.*|sample_.*|^Photon_.*|^Electron_.*|Weight.*|^Gen.*|^weight.*|^TrigObj_.*|^event.*|^Pileup_.*|^run.*|gen.*|.*LHE.*|^PV.*|luminosity|Block|genWeight|HLT_passed|sorted_photon_pt|Pass_L1_DoubleEG15_11|Pass_L1_DoubleEG16_11|Pass_L1_DoubleEG17_11|Pass_L1_DoubleEG_OR|^fixedGridRho.*|^Rho_.*"
     actions=[]
 
     dataframe =load_meta_data(data)
@@ -265,6 +269,8 @@ def ggH(data,phi_mass,sample):
     #ggH4g=ggH4g.Filter(f'sample_isMC==1 | non_MC_cut_m{m}==1','blinding_data_samples')
 
     ggH4g=ggH4g.Define("Photon_passFullCutBasedID_custom","Photon_preselection==1&&Photon_IdNoIso_custom==1&&Photon_PassFullIso_LooseEGM==1")
+    ggH4g=ggH4g.Define("Photon_passFullCutBasedID_customPhIsoOnly","Photon_preselection==1&&Photon_IdNoIso_custom==1&&Photon_PassPhIso_LooseEGM==1")
+    ggH4g=ggH4g.Define("Photon_passFullCutBasedID_customChIso","Photon_passFullCutBasedID_customPhIsoOnly&&Photon_PassChIso_LooseEGM==1")
     ggH4g=scale_factors(ggH4g,era)
     actions.append(ggH4g.Snapshot('ggH4g', f"{sample}_ggH4g.root", cols, opts))
 

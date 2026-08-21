@@ -114,7 +114,7 @@ def main(paths, isMC, trees, var, categories, period, bins, lifetime, mass, fina
         dcm_cat_year.addBernstein("background", "mass", f"bkg_parameters_m{mass}_ct{lifetime}_{cat}_{year}_fit.json")
 
         dcm_cat_year.addSystematic(name=f"nuisance_smear_m{mass}_ct{lifetime}_{cat}_{year}", kind = "param", values=[0.0, 1.0])
-        dcm_cat_year.addSystematic(name=f"xsec_unc_m{mass}_ct{lifetime}_{cat}_{year}", kind = "lnN", values={"signal":f"{1+xsec_quad_up}/{1-xsec_quad_down}"})
+        dcm_cat_year.addSystematic(name=f"xsec_unc_m{mass}_ct{lifetime}_{cat}_{year}", kind = "lnN", values={"signal":f"{1-xsec_quad_down}/{1+xsec_quad_up}"})
         dcm_cat_year.addSystematic(name=f"lumi_unc_m{mass}_ct{lifetime}_{cat}_{year}", kind = "lnN", values={"signal":"{}".format(1+lumi_unc[year])})
         dcm_cat_year.addSystematic(name=f"PDF_alphas_unc_m{mass}_ct{lifetime}_{cat}_{year}", kind = "lnN", values={"signal":"{}".format(1+PDF_alphas_unc)})
         dcm_cat_year.addSystematic(name=f"bkg_rate_m{mass}_ct{lifetime}_{cat}_{year}", kind = "rateParam", values=[dcm_cat_year.tag, "background", "1", "[0,10]"])

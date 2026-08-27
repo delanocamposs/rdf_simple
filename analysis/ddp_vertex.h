@@ -720,7 +720,8 @@ RVecF best_4gamma(RVecF pt,RVecF eta, RVecF phi,RVec<bool> EB, RVec<bool> EE,RVe
   RVec<RVecF> all_combos;
   RVecF result;
   result.reserve(29);
-  auto idx_cmb = ROOT::VecOps::Combinations(pt, 4);
+  const auto candidate_idx = ROOT::VecOps::Nonzero(isLoose); //importsnt for 4g case -> onyl build idx_cmb based on nonzero preselected candidates
+  auto idx_cmb = ROOT::VecOps::Combinations(candidate_idx, 4);
   VertexCalculator *calc = new VertexCalculator();
   std::vector<float> best23_A;
   std::vector<float> best23_B;
@@ -737,13 +738,10 @@ RVecF best_4gamma(RVecF pt,RVecF eta, RVecF phi,RVec<bool> EB, RVec<bool> EE,RVe
   float best_score;
 
   for (size_t i = 0; i < idx_cmb[0].size(); i++) {
-    const auto i1 = idx_cmb[0][i];
-    const auto i2 = idx_cmb[1][i];
-    const auto i3 = idx_cmb[2][i];
-    const auto i4 = idx_cmb[3][i];
-
-    if (!(isLoose[i1] && isLoose[i2] && isLoose[i3] && isLoose[i4])) // only use preselected photons
-      continue;
+    const auto i1 = candidate_idx[idx_cmb[0][i]];
+    const auto i2 = candidate_idx[idx_cmb[1][i]];
+    const auto i3 = candidate_idx[idx_cmb[2][i]];
+    const auto i4 = candidate_idx[idx_cmb[3][i]];
 
     result.clear();
     best23_A.clear();

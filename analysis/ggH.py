@@ -42,30 +42,15 @@ def get_ID_val(var, ID_type):
 
 egm_wp={"Loose":1,"Medium":2,"Tight":3}
 run3_eras={"2022preEE","2022postEE","2023preBPix","2023postBPix","2024"}
+run2_trigger_pt=(22,22,22)
+run3_trigger_pt=(32,20)
+run3_candidate_min_pt=10
+
+def trigger_pt_requirement(era,term):
+    thresholds=run3_trigger_pt if era in run3_eras else run2_trigger_pt
+    return " && ".join(f"Sum({term.format(pt=t)})>={k}" for k,t in enumerate(thresholds,1))
 
 # Common Object ID:
-def muonAna(dataframe):
-
-    # Common Muon ID definitions (No isolation)
-    muons = dataframe.Define("loose_muon", "Muon_looseId==1&&abs(Muon_eta)<2.4&&abs(Muon_dxy)<0.2&&abs(Muon_dz)<0.5&&Muon_pt>10&&Muon_pfIsoId>1")
-    muons = muons.Define("tight_muon", "loose_muon&&Muon_tightId&&Muon_pfIsoId>3")
-    muons = muons.Define("veto_muon", "Muon_pt>5&&abs(Muon_eta)<2.4&&abs(Muon_dxy)<0.2&&abs(Muon_dz)<0.5&&(loose_muon==0)&&(tight_muon==0)")
-    muons = muons.Define("Muon_nloose", "Sum(loose_muon)")
-    muons = muons.Define("Muon_ntight", "Sum(tight_muon)")
-    muons = muons.Define("Muon_nveto", "Sum(veto_muon)")
-    return muons
-
-def electronAna(dataframe):
-
-    # Common Electron ID definitions
-    electrons = dataframe.Define("loose_electron", "Electron_pt>15&&abs(Electron_eta)<2.5&&(abs(Electron_eta)>1.57||abs(Electron_eta)<1.44)&&abs(Electron_dxy)<0.2&&abs(Electron_dz)<0.2&&Electron_lostHits<2&&Electron_convVeto&&Electron_cutBased>0")
-    electrons = electrons.Define("tight_electron", "loose_electron&&Electron_cutBased>3")
-    electrons = electrons.Define("veto_electron", "Electron_pt>55&&abs(Electron_eta)<2.5&&(abs(Electron_eta)>1.57||abs(Electron_eta)<1.44)&&abs(Electron_dxy)<0.2&&abs(Electron_dz)<0.2&&Electron_lostHits<2&&Electron_convVeto&&(tight_electron==0)&&(loose_electron==0)")
-    electrons = electrons.Define("Electron_nloose", "Sum(loose_electron)")
-    electrons = electrons.Define("Electron_ntight", "Sum(tight_electron)")
-    electrons = electrons.Define("Electron_nveto", "Sum(veto_electron)")
-    return electrons
-
 def photonAna(dataframe, era):
     # Overlap with loose leptons
     #photons = dataframe.Define("Photon_muOverlap", "overlapClean(Photon_phi, Photon_eta, Muon_phi[loose_muon], Muon_eta[loose_muon])")
@@ -73,7 +58,7 @@ def photonAna(dataframe, era):
     #photons = photons.Define("Photon_overlap", "Photon_muOverlap||Photon_eleOverlap")
 
     #this preselection should be the same for both custom ID and standard EGM ID
-    photons = dataframe.Define("Photon_preselection", "Photon_pt>20&&!Photon_pixelSeed&&abs(Photon_eta)<2.5&&(abs(Photon_eta)>1.57||abs(Photon_eta)<1.44)&&(Photon_isScEtaEE||Photon_isScEtaEB)")
+    photons = dataframe.Define("Photon_preselection", "Photon_pt>0&&!Photon_pixelSeed&&abs(Photon_eta)<2.5&&(abs(Photon_eta)>1.57||abs(Photon_eta)<1.44)&&(Photon_isScEtaEE||Photon_isScEtaEB)")
     #photons = photons.Define("Photon_rho", "fixedGridRhoFastjetAll")
     ph_iso_wp="phIsoWP_Run3" if era in run3_eras else "phIsoWP_Run2"
     ch_iso_wp="chIsoWP_Run3" if era in run3_eras else "chIsoWP_Run2"
@@ -94,7 +79,15 @@ def photonAna(dataframe, era):
     for wp,level in egm_wp.items():
         photons=photons.Define(f"Photon_passEGM{wp}ID",f"Photon_cutBased>={level}")
         photons=photons.Define(f"Photon_passFullCutBasedID_{wp}EGM",f"Photon_preselection&&Photon_passEGM{wp}ID")
+
+    candidate_mask = f"Photon_preselection && Photon_pt>{run3_candidate_min_pt}" if era in run3_eras else "Photon_preselection"
+    photons = photons.Define("Photon_4gCandidate", candidate_mask)
+    photons = photons.Define("nPhoton_4gCandidate", "Sum(Photon_4gCandidate)")
     return photons
+
+def requireTriggerPt(dataframe, era):
+    requirement = trigger_pt_requirement(era,"Photon_4gCandidate && Photon_pt>{pt}")
+    return dataframe.Filter(requirement, "passed_trigger_pT")
 
 def save_report(df, report_name, sample, opts, actions):
         report = ROOT.RDataFrame(1)
@@ -107,7 +100,7 @@ def save_report(df, report_name, sample, opts, actions):
 def ggH(data,phi_mass,sample):
 
     def four_gamma(df, mass):
-        df=df.Define(f'raw_best_4g_m{mass}',f"best_4gamma(Photon_pt,Photon_eta,Photon_phi,Photon_isScEtaEB,Photon_isScEtaEE,Photon_preselection,Photon_IdNoIso_custom,Photon_corrIso_m{mass},{float(mass)})")
+        df=df.Define(f'raw_best_4g_m{mass}',f"best_4gamma(Photon_pt,Photon_eta,Photon_phi,Photon_isScEtaEB,Photon_isScEtaEE,Photon_4gCandidate,Photon_IdNoIso_custom,Photon_corrIso_m{mass},{float(mass)})")
         return df
 
     def isolation_vars(df, mass):
@@ -169,6 +162,14 @@ def ggH(data,phi_mass,sample):
         df=df.Define(f'Photon_sieie_gamma3_m{mass}',f'Photon_sieie[best_4g_idx3_m{mass}]')
         df=df.Define(f'Photon_sieie_gamma4_m{mass}',f'Photon_sieie[best_4g_idx4_m{mass}]')
         return df
+
+    def trigger_proxy(df, mass, era):
+        photon_pts = f'best_4g_triggerProxyPhotonPt_m{mass}'
+        df=df.Define(photon_pts,f'ROOT::VecOps::RVec<float>{{Photon_pt_gamma1_m{mass},Photon_pt_gamma2_m{mass},Photon_pt_gamma3_m{mass},Photon_pt_gamma4_m{mass}}}')
+        proxy = f'HLT_passed==1 && {trigger_pt_requirement(era,photon_pts+">{pt}")}'
+        if era in run3_eras:
+            proxy = f'{proxy} && Sum({photon_pts}>{run3_candidate_min_pt})==4'
+        return df.Define(f'best_4g_passTriggerProxy_m{mass}', proxy)
 
     def indices(df, mass):
         df=df.Define(f'best_4g_idx1_m{mass}',f'raw_best_4g_m{mass}[24]')
@@ -232,20 +233,19 @@ def ggH(data,phi_mass,sample):
     actions=[]
 
     dataframe =load_meta_data(data)
-    ggH=dataframe["Events"].Filter("isGoodLumi && HLT_passed==1","passed_lumiFilter")
+    ggH=dataframe["Events"].Filter("isGoodLumi","passed_lumiFilter")
+    ggH=ggH.Filter("HLT_passed==1","passed_HLT")
 
     if data["isMC"]:
         ggH = ggH.Define("Pileup_weight", f"getPUweight(Pileup_nPU, puWeight_{era}, sample_isMC)")
 
-    #ggH=electronAna(ggH)
-    #ggH=muonAna(ggH)
-    
     #ggH=ggH.Filter("Sum(loose_muon==1)==0",'muon_veto')
     #ggH=ggH.Filter("Sum(loose_electron==1)==0",'electron_veto')
 
     ggH=photonAna(ggH,era)
     ggH4g=ggH.Filter('nPhoton>3','at_least_4_photons')
-    ggH4g=ggH4g.Filter('Sum(Photon_preselection==1)>3','at_least_3_preselected_photons')
+    ggH4g=ggH4g.Filter('nPhoton_4gCandidate>3','at_least_4_candidate_photons')
+    ggH4g=requireTriggerPt(ggH4g,era)
 
     for mass in phi_mass:
         #Photon_corrIso_m{} needs to be defined first since four_gamma relies on it
@@ -256,6 +256,7 @@ def ggH(data,phi_mass,sample):
         ggH4g=indices(ggH4g, mass)
         ggH4g=corrected_kinematic_vars(ggH4g, mass)
         ggH4g=uncorrected_kinematic_vars(ggH4g, mass)
+        ggH4g=trigger_proxy(ggH4g, mass, era)
         ggH4g=preselection(ggH4g, mass)
         ggH4g=isolation_vars(ggH4g, mass)
         ggH4g=masses(ggH4g, mass)

@@ -1,19 +1,30 @@
 order_fit = 4
 order_gen = 4
 
+#obviously this will need to change if someone else is runing ggH
 eos_base = "/eos/uscms/store/user/dacampos/analysis"
 
+signal_masses = [15, 20, 30, 40, 50, 55]
+signal_ctaus = [0, 10, 20, 50, 100, 1000]
+run2_signal_years = ["2017", "2018"]
+run3_signal_years=["2022preEE","2022postEE","2023preBPix","2023postBPix","2024"]
+run2_data_years=["2017","2018"]
+run3_data_years=["2022","2023","2024"]
+combined_data_years=("Run2","Run3")
+delta_r_cut = 0.3
+
 def signal_path(mass, ctau, year):
-    return f"{eos_base}/signal_new/ggH4g_M{mass}_ctau{ctau}_{year}_0_ggH4g_M{mass}_ctau{ctau}_{year}_ggH4g.root"
+    return f"{eos_base}/signal_newTrig/ggH4g_M{mass}_ctau{ctau}_{year}_0_ggH4g_M{mass}_ctau{ctau}_{year}_ggH4g.root"
 
 def bkg_path(year):
-    return f"{eos_base}/data_new/EGamma_{year}_updated/EGamma_{year}_ggH4g_all.root"
+    directory=year if year in combined_data_years else f"EGamma_{year}"
+    return f"{eos_base}/data_newTrig/{directory}/EGamma_{year}_ggH4g_all.root"
 
 signal_window = (110, 140)
+fit_window=(100,220)
 
-fit_window = (70, 180)
-lower_sb = (70, 110)
-upper_sb = (140, 180)
+lower_sb=(fit_window[0],signal_window[0])
+upper_sb=(signal_window[1],fit_window[1])
 
 n_bins = 30
 bins = [n_bins, signal_window[0], signal_window[1]]
@@ -22,10 +33,13 @@ bin_width = (signal_window[1] - signal_window[0]) / n_bins
 n_fit_bins = int(round((fit_window[1] - fit_window[0]) / bin_width))
 fit_bins = [n_fit_bins, fit_window[0], fit_window[1]]
 
-lxy1 = 50
+summary_bin_width = 5.0
+
+lxy1=50
 lxy2 = 50
 
-dxy_min = -20
+dxy_min=-20 #cm
+dxy_max= 110 #cm
 
 signal_xsec = 52.143
 BR = 1e-4

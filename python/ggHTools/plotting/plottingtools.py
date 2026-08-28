@@ -1,3 +1,4 @@
+import os
 import ROOT
 
 
@@ -39,11 +40,14 @@ def getPoisson2(h, scale):
     return gRate
 
 
-def save_histos(mass, year, ctau, hist1, hist2, tag=""):
+def save_histos(mass, year, ctau, hist1, hist2, tag="", directory=""):
     suffix = f"_{tag}" if tag else ""
     filename = f"sig_bkg_summary_histos_m{mass}_ct{ctau}_year{year}{suffix}.root"
+    if directory:
+        os.makedirs(directory, exist_ok=True)
+        filename = os.path.join(directory, filename)
     outfile=ROOT.TFile(filename, "RECREATE")
-    hist1.GetValue().Write()
-    hist2.GetValue().Write()
+    hist1.Write()
+    hist2.Write()
     outfile.Close()
     return filename

@@ -5,17 +5,16 @@ from ggHparameters import signal_window, bernstein_coeff_card
 
 
 class DatacardWorkspace:
-    def __init__(self,finalstate,category,period,lifetime,mass,luminosity=1.0,physics="ggH"):
+    def __init__(self,finalstate,period,lifetime,mass,luminosity=1.0,physics="ggH"):
         self.physics=str(physics)
         self.lifetime=str(lifetime)
         self.mass=str(mass)
         self.finalstate=str(finalstate)
-        self.category=str(category)
         self.period=str(period)
         self.contributions=[]
         self.systematics=[]
 
-        self.tag=self.physics+"_"+self.finalstate+"_m"+self.mass+"_ct"+self.lifetime+"_"+self.category+"_"+self.period
+        self.tag=self.physics+"_"+self.finalstate+"_m"+self.mass+"_ct"+self.lifetime+"_"+self.period
         self.rootFile = ROOT.TFile("datacardInputs_"+self.tag+".root","RECREATE")
         self.rootFile.cd()
         self.w=ROOT.RooWorkspace("w","w")

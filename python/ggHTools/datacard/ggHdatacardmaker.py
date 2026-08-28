@@ -1,52 +1,48 @@
 from datacard import datacardtools
 from datacard import ggHfitter
 from datacard.ggHdatacardworkspace import DatacardWorkspace
-from ggHparameters import order_fit, order_gen, lxy1, lxy2, smear_resolution, lumi, xsec_unc, pdf_alphas_unc, lumi_unc
-import json 
-import os 
+from ggHparameters import order_fit, order_gen, smear_resolution, lumi, xsec_unc, pdf_alphas_unc, lumi_unc
 import ROOT
-import argparse, subprocess
+import subprocess
 import numpy as np
-import shutil
-import glob
 
 ROOT.gROOT.SetBatch(False)
 ROOT.RooMsgService.instance().setGlobalKillBelow(ROOT.RooFit.ERROR)
 ROOT.gErrorIgnoreLevel = ROOT.kError
 
-def cleanup(year, finalstate, physics, cat, mass, lifetime):
+# helper function to get the correct photon id by year (loose=run2, medium=run3)
+def recommended_photon_id(period):
+    period = str(period)
+    if period in ["2016", "2017", "2018", "Run2"]:
+        return "LooseEGM"
+    if period in ["2022", "2023", "2024", "2022preEE", "2022postEE", "2023preBPix", "2023postBPix", "Run3"]:
+        return "MediumEGM"
+    raise ValueError(f"no recommended photon ID is configured for period '{period}'")
+
+def cleanup(year, finalstate, physics, mass, lifetime):
+    output_dir = f"m{mass}_ct{lifetime}_{year}_{finalstate}_{physics}"
     subprocess.run(["rm", f"cache.root"])
-    subprocess.run(["mkdir", f"m{mass}_ct{lifetime}_{cat}_{year}_{finalstate}_{physics}"])
-    subprocess.run(["mv", f"fit_bkg_m{mass}_ct{lifetime}_{cat}_{year}_fit.root", f"m{mass}_ct{lifetime}_{cat}_{year}_{finalstate}_{physics}/"])
-    subprocess.run(["mv", f"fit_bkg_m{mass}_ct{lifetime}_{cat}_{year}_gen.root", f"m{mass}_ct{lifetime}_{cat}_{year}_{finalstate}_{physics}/"])
-    subprocess.run(["mv", f"fit_sig_m{mass}_ct{lifetime}_{cat}_{year}.root", f"m{mass}_ct{lifetime}_{cat}_{year}_{finalstate}_{physics}/"])
-    subprocess.run(["mv", f"bkg_parameters_m{mass}_ct{lifetime}_{cat}_{year}_fit.json", f"m{mass}_ct{lifetime}_{cat}_{year}_{finalstate}_{physics}/"])
-    subprocess.run(["mv", f"bkg_parameters_m{mass}_ct{lifetime}_{cat}_{year}_gen.json", f"m{mass}_ct{lifetime}_{cat}_{year}_{finalstate}_{physics}/"])
-    subprocess.run(["mv", f"sig_parameters_m{mass}_ct{lifetime}_{cat}_{year}.json", f"m{mass}_ct{lifetime}_{cat}_{year}_{finalstate}_{physics}/"])
-    subprocess.run(["mv", f"data_obs_m{mass}_ct{lifetime}_{cat}_{year}.root", f"m{mass}_ct{lifetime}_{cat}_{year}_{finalstate}_{physics}/"])
-#    subprocess.run(["mv", f"datacardInputs_{physics}_{finalstate}_m{mass}_ct{lifetime}_{cat}_{year}.root", f"{cat}_{year}_{finalstate}_{physics}/"])
-    subprocess.run(["mv", f"rate_histos_m{mass}_ct{lifetime}_{cat}_{year}.root", f"m{mass}_ct{lifetime}_{cat}_{year}_{finalstate}_{physics}/"])
-#    subprocess.run(["mv", f"datacard_{physics}_{finalstate}_m{mass}_ct{lifetime}_{cat}_{year}.txt", f"{cat}_{year}_{finalstate}_{physics}/"])
+    subprocess.run(["mkdir", output_dir])
+    subprocess.run(["mv", f"fit_bkg_m{mass}_ct{lifetime}_{year}_fit.root", f"{output_dir}/"])
+    subprocess.run(["mv", f"fit_bkg_m{mass}_ct{lifetime}_{year}_gen.root", f"{output_dir}/"])
+    subprocess.run(["mv", f"fit_sig_m{mass}_ct{lifetime}_{year}.root", f"{output_dir}/"])
+    subprocess.run(["mv", f"bkg_parameters_m{mass}_ct{lifetime}_{year}_fit.json", f"{output_dir}/"])
+    subprocess.run(["mv", f"bkg_parameters_m{mass}_ct{lifetime}_{year}_gen.json", f"{output_dir}/"])
+    subprocess.run(["mv", f"sig_parameters_m{mass}_ct{lifetime}_{year}.json", f"{output_dir}/"])
+    subprocess.run(["mv", f"data_obs_m{mass}_ct{lifetime}_{year}.root", f"{output_dir}/"])
+    subprocess.run(["mv", f"rate_histos_m{mass}_ct{lifetime}_{year}.root", f"{output_dir}/"])
     
-def main(paths, isMC, trees, var, categories, period, bins, lifetime, mass, finalstate="4g", physics="ggH", bkg_weight=True,order_fit=order_fit, order_gen=order_gen,lxy1=lxy1, lxy2=lxy2, lumi_scaling=1, photon_id="custom", signal_lumis=None):
+def main(paths, isMC, trees, var, period, bins, lifetime, mass,finalstate="4g", physics="ggH", order_fit=order_fit,order_gen=order_gen, lumi_scaling=1, signal_lumis=None):
     ROOT.gROOT.SetBatch(True)
     year=period
+    photon_id = recommended_photon_id(period)
 
     teal = "\033[38;5;44m"
     reset = "\033[0m"
-    print(f"{teal}processing datacard for ct={lifetime} mm, mass={mass} GeV, year={year} in categories: {categories}{reset}")
+    print(f"{teal}processing datacard for ct={lifetime} mm, mass={mass} GeV, year={year}, photon ID={photon_id}{reset}")
 
-    cat_dict = {"displaced" : {"cut" : f"(best_4g_phi1_dxy_m{mass}>{lxy1})&&(best_4g_phi2_dxy_m{mass}>{lxy2})", "file" : ""},
-                    "asym" : {"cut" : f"(best_4g_phi1_dxy_m{mass}>{lxy1})&&(best_4g_phi2_dxy_m{mass}<{lxy2})||(best_4g_phi1_dxy_m{mass}<{lxy1})&&(best_4g_phi2_dxy_m{mass}>{lxy2})", "file" : ""},
-                    "prompt" : {"cut" : f"(best_4g_phi1_dxy_m{mass}<{lxy1})&&(best_4g_phi2_dxy_m{mass}<{lxy2})", "file" : ""},
-                    "none" : {"cut" : f"(best_4g_phi1_dxy_m{mass}<{lxy1})&&(best_4g_phi2_dxy_m{mass}<{lxy2})||(best_4g_phi1_dxy_m{mass}<{lxy1})&&(best_4g_phi2_dxy_m{mass}>{lxy2})||(best_4g_phi1_dxy_m{mass}>{lxy1})&&(best_4g_phi2_dxy_m{mass}<{lxy2})||(best_4g_phi1_dxy_m{mass}>{lxy1})&&(best_4g_phi2_dxy_m{mass}>{lxy2})", "file" : ""}}
-
-
-    output_names = ["rate_histos_m{}_ct{}_{}_{}.root".format(mass, lifetime, cat, year) for cat in categories]
-    histo_names = []
-
-    for i in range(len(categories)):
-        histo_names.append([f"hist_{i}_{j}" for j in range(len(paths))])
+    output_name = f"rate_histos_m{mass}_ct{lifetime}_{year}.root"
+    histo_names = [f"hist_{i}" for i in range(len(paths))]
 
     xsec_quad_up = np.sqrt((xsec_unc["ggH"][0])**2+(xsec_unc["VBF"][0])**2)
     xsec_quad_down = np.sqrt((xsec_unc["ggH"][1])**2+(xsec_unc["VBF"][1])**2)
@@ -55,12 +51,12 @@ def main(paths, isMC, trees, var, categories, period, bins, lifetime, mass, fina
     signal_indices = [i for i, flag in enumerate(isMC) if flag]
     background_indices = [i for i, flag in enumerate(isMC) if not flag]
     if not signal_indices:
-        raise ValueError("at least one signal input is required")
+        raise ValueError("makes no sense. >=1 signal input is required")
     if len(background_indices) != 1:
-        raise ValueError("exactly one data/background input is required")
+        raise ValueError("onl 1 data/background input is required")
     background_index = background_indices[0]
     if signal_lumis is not None and len(signal_lumis) != len(signal_indices):
-        raise ValueError("signal_lumis must have one value per signal input")
+        raise ValueError("signal_lumis must  only have one value per signal input")
     file_scalings = None
     if signal_lumis is not None:
         file_scalings = []
@@ -72,64 +68,52 @@ def main(paths, isMC, trees, var, categories, period, bins, lifetime, mass, fina
             else:
                 file_scalings.append(1.0)
 
-    selections = []
-    for cat in cat_dict:    
-        if cat in categories:
-            selections.append(cat_dict[cat]["cut"])
+#generates the signal and background histograms
+    th1d_filename, th1d_histos, th1d_histo_obj = datacardtools.sig_bkg_histos(paths, isMC, trees, mass, var, output_name, bins, photon_id, histo_names=histo_names, lumi_scaling=lumi_scaling, file_scalings=file_scalings)
 
-    selections.reverse()
-    #print(selections)
-    
-    th1d_files, th1d_filenames, th1d_histos, th1d_histo_obj = datacardtools.sig_bkg_histos(paths, isMC, trees,mass,lifetime, selections, var, output_names, bins, year, histo_names, bkg_weight, lumi_scaling=lumi_scaling, photon_id=photon_id, file_scalings=file_scalings)
+    N_sb=th1d_histo_obj[background_index].Integral()
+    dcm_year = DatacardWorkspace(finalstate, period, lifetime, mass, lumi[year], physics)
 
-    i=0
-    for cat in categories:
-        N_sb=th1d_histo_obj[i][background_index].Integral()
-        dcm_cat_year = DatacardWorkspace(finalstate, cat, period, lifetime, mass, lumi[year], physics)
+    signal_hist_name = "signal_combined"
+    signal_hist = th1d_histo_obj[signal_indices[0]].GetValue().Clone(signal_hist_name)
+    signal_hist.SetDirectory(0)
+    for signal_index in signal_indices[1:]:
+        signal_hist.Add(th1d_histo_obj[signal_index].GetValue())
+    rate_file = ROOT.TFile(th1d_filename, "UPDATE")
+    rate_file.cd()
+    signal_hist.Write(signal_hist_name, ROOT.TObject.kOverwrite)
+    rate_file.Close()
 
-        signal_hist_name = "signal_combined"
-        signal_hist = th1d_histo_obj[i][signal_indices[0]].GetValue().Clone(signal_hist_name)
-        signal_hist.SetDirectory(0)
-        for signal_index in signal_indices[1:]:
-            signal_hist.Add(th1d_histo_obj[i][signal_index].GetValue())
-        rate_file = ROOT.TFile(th1d_filenames[i], "UPDATE")
-        rate_file.cd()
-        signal_hist.Write(signal_hist_name, ROOT.TObject.kOverwrite)
-        rate_file.Close()
+# i have to fit bkg twice. 1: to generate fake data 2: actual combine bkg fit
+    ratio = ggHfitter.fitBKG(th1d_filename, th1d_histos[background_index], f"fit_bkg_m{mass}_ct{lifetime}_{year}_fit.root", order=order_fit)
+    datacardtools.extract_JSON(f"fit_bkg_m{mass}_ct{lifetime}_{year}_fit.root", "w", f"bkg_parameters_m{mass}_ct{lifetime}_{year}_fit.json")
+    ggHfitter.fitBKG(th1d_filename, th1d_histos[background_index], f"fit_bkg_m{mass}_ct{lifetime}_{year}_gen.root", order=order_gen)
+    datacardtools.extract_JSON(f"fit_bkg_m{mass}_ct{lifetime}_{year}_gen.root", "w", f"bkg_parameters_m{mass}_ct{lifetime}_{year}_gen.json")
 
-        #we need to fit bkg twice because one fit is used to generate the data and one fit is used for combine fit
-        #two jsons with parameters: fit and gen. gen=used to generate data. fit=used in combine.
-        ratio = ggHfitter.fitBKG(f"{th1d_filenames[i]}", f"{th1d_histos[i][background_index]}", f"fit_bkg_m{mass}_ct{lifetime}_{cat}_{year}_fit.root", order=order_fit)
-        datacardtools.extract_JSON(f"fit_bkg_m{mass}_ct{lifetime}_{cat}_{year}_fit.root", "w", f"bkg_parameters_m{mass}_ct{lifetime}_{cat}_{year}_fit.json")
+    bkg_rate=N_sb*ratio
 
-        ggHfitter.fitBKG(f"{th1d_filenames[i]}", f"{th1d_histos[i][background_index]}", f"fit_bkg_m{mass}_ct{lifetime}_{cat}_{year}_gen.root", order=order_gen)
-        datacardtools.extract_JSON(f"fit_bkg_m{mass}_ct{lifetime}_{cat}_{year}_gen.root", "w", f"bkg_parameters_m{mass}_ct{lifetime}_{cat}_{year}_gen.json")
+    ggHfitter.fitSIG(th1d_filename, signal_hist_name, f"fit_sig_m{mass}_ct{lifetime}_{year}.root")
+    datacardtools.extract_JSON(f"fit_sig_m{mass}_ct{lifetime}_{year}.root", "w", f"sig_parameters_m{mass}_ct{lifetime}_{year}.json")
 
-        bkg_rate=N_sb*ratio
+#import the DCB and Bernstein polynomial into the workspace
+    dcm_year.addDCB("signal", "mass", f"sig_parameters_m{mass}_ct{lifetime}_{year}.json", resolution={f"nuisance_smear_m{mass}_ct{lifetime}_{year}":str(smear_resolution)})
+    dcm_year.addBernstein("background", "mass", f"bkg_parameters_m{mass}_ct{lifetime}_{year}_fit.json")
 
-        ggHfitter.fitSIG(f"{th1d_filenames[i]}", signal_hist_name, f"fit_sig_m{mass}_ct{lifetime}_{cat}_{year}.root")
-        datacardtools.extract_JSON(f"fit_sig_m{mass}_ct{lifetime}_{cat}_{year}.root", "w", f"sig_parameters_m{mass}_ct{lifetime}_{cat}_{year}.json")
+#add systematics
+    dcm_year.addSystematic(name=f"nuisance_smear_m{mass}_ct{lifetime}_{year}", kind = "param", values=[0.0, 1.0])
+    dcm_year.addSystematic(name=f"xsec_unc_m{mass}_ct{lifetime}_{year}", kind = "lnN", values={"signal":f"{1-xsec_quad_down}/{1+xsec_quad_up}"})
+    dcm_year.addSystematic(name=f"lumi_unc_m{mass}_ct{lifetime}_{year}", kind = "lnN", values={"signal":"{}".format(1+lumi_unc[year])})
+    dcm_year.addSystematic(name=f"PDF_alphas_unc_m{mass}_ct{lifetime}_{year}", kind = "lnN", values={"signal":"{}".format(1+PDF_alphas_unc)})
+    dcm_year.addSystematic(name=f"bkg_rate_m{mass}_ct{lifetime}_{year}", kind = "rateParam", values=[dcm_year.tag, "background", "1", "[0,10]"])
 
-        dcm_cat_year.addDCB("signal", "mass", f"sig_parameters_m{mass}_ct{lifetime}_{cat}_{year}.json", resolution={f"nuisance_smear_m{mass}_ct{lifetime}_{cat}_{year}":str(smear_resolution)})
-        dcm_cat_year.addBernstein("background", "mass", f"bkg_parameters_m{mass}_ct{lifetime}_{cat}_{year}_fit.json")
+#yields are added by integrating the histograms for sig and bkg
+    dcm_year.addFixedYield(name="background", ID=1, value=bkg_rate)
+    dcm_year.addFixedYieldFromFile(name="signal", ID=0, filename=th1d_filename, histoName=signal_hist_name, lumi=(signal_lumis is None))
 
-        dcm_cat_year.addSystematic(name=f"nuisance_smear_m{mass}_ct{lifetime}_{cat}_{year}", kind = "param", values=[0.0, 1.0])
-        dcm_cat_year.addSystematic(name=f"xsec_unc_m{mass}_ct{lifetime}_{cat}_{year}", kind = "lnN", values={"signal":f"{1-xsec_quad_down}/{1+xsec_quad_up}"})
-        dcm_cat_year.addSystematic(name=f"lumi_unc_m{mass}_ct{lifetime}_{cat}_{year}", kind = "lnN", values={"signal":"{}".format(1+lumi_unc[year])})
-        dcm_cat_year.addSystematic(name=f"PDF_alphas_unc_m{mass}_ct{lifetime}_{cat}_{year}", kind = "lnN", values={"signal":"{}".format(1+PDF_alphas_unc)})
-        dcm_cat_year.addSystematic(name=f"bkg_rate_m{mass}_ct{lifetime}_{cat}_{year}", kind = "rateParam", values=[dcm_cat_year.tag, "background", "1", "[0,10]"])
+#this part is just for creating fake data inside the SR (see datacardtools.py for it_
+    data_year_name = datacardtools.generate_data_hist(f"fit_bkg_m{mass}_ct{lifetime}_{year}_gen.root", bins_num=bins[0], norm=bkg_rate, output_name=f"data_obs_m{mass}_ct{lifetime}_{year}.root")
 
-        dcm_cat_year.addFixedYield(name="background", ID=1, value=bkg_rate)
-        dcm_cat_year.addFixedYieldFromFile(name="signal", ID=0, filename=th1d_filenames[i], histoName=signal_hist_name, lumi=(signal_lumis is None))
-
-        workspace_file_cat_year = "datacardInputs_"+dcm_cat_year.tag+".root"
-
-        data_cat_year_name = datacardtools.generate_data_hist(f"fit_bkg_m{mass}_ct{lifetime}_{cat}_{year}_gen.root", bins_num=bins[0], norm=bkg_rate, output_name=f"data_obs_m{mass}_ct{lifetime}_{cat}_{year}.root")
-
-        dcm_cat_year.importBinnedData(data_cat_year_name, "h_pdf__mass", ["mass"])
-            
-        dcm_cat_year.makeCard()
-
-        cleanup(year, finalstate, physics, cat, mass, lifetime)
-
-        i+=1
+# add in the fake data to the card, make the card and clean up all the file junk
+    dcm_year.importBinnedData(data_year_name, "h_pdf__mass", ["mass"])
+    dcm_year.makeCard()
+    cleanup(year, finalstate, physics, mass, lifetime)

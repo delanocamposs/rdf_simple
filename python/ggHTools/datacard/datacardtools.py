@@ -18,41 +18,21 @@ ROOT.gROOT.SetBatch(False)
 
 
 
-def sig_bkg_histos(files, isMC, trees, mass, lifetime, selections, var, output_names, bins, year, histo_names=[], bkg_weight=True, lumi_scaling=1, photon_id="custom", file_scalings=None):
-    '''
-    files = path to the root data/MC files to construct the histos from
-    isMC = is the file MC or not (matters because it gets weighted and scaled correctly if it is)
-    trees = the trees inside each file that contain the event data 
-    selections = cuts to be applied to the files provided 
-    var = the independetn variable in the histograms 
-    output_names = the names of the new files which hold the new histos 
-    histo_names = new names of the new histos made inside the new root output file 
-    bkg_weight = the weight we scale the background histogram by (derived SF from looking at blinded data compared to background)
-    bins = the binning of the new histograms
-
-    EXAMPLE:
-
-    sig_bkg_histos(["path/to/MC", "path/to/bkg"], [1, 0], ["ggH4g", "ggH4g"], ["best_4g_phi1_dxy_m{mass}>50", "best_4g_phi2_dxy_m{mass}<50"], "best_4g_cor_mass_m{mass}", ["output1.root", "output2.root"], [["hist1", "hist2"], ["hist3", "hist4"]])
-    '''
-
+def sig_bkg_histos(files, isMC, trees, mass, var, output_name, bins, photon_id,histo_names=None, lumi_scaling=1, file_scalings=None):
+    if not (len(files) == len(isMC) == len(trees)):
+        raise ValueError("files, isMC, and trees must have the same length")
     if file_scalings is None:
         file_scalings = [lumi_scaling] * len(files)
     if len(file_scalings) != len(files):
         raise ValueError("file_scalings must have one value per input file")
 
-    outputs=[]
     sumw_dict={}
-    if len(output_names) != len(selections):
-        print(f"ERROR: the number of selections must match the number of desired saved output file names. one saved file for each selection")
-        return
-    selection_num = len(selections)
     file_num = len(files)
-    if len(histo_names) == 0:
-        histo_names = [[] for _ in range(selection_num)]
-        for i in range(selection_num):
-            for j in range(file_num):
-                histo_names[i].append(f"hist_{i}_{j}")
-    histo_obj = [[] for _ in range(selection_num)]
+    if histo_names is None:
+        histo_names = [f"hist_{i}" for i in range(file_num)]
+    if len(histo_names) != file_num:
+        raise ValueError("histo_names must have one value per input file")
+    histo_obj = []
 
     for i in range(len(files)):
         filepath_i = files[i]
@@ -67,28 +47,25 @@ def sig_bkg_histos(files, isMC, trees, mass, lifetime, selections, var, output_n
                 print("sum of weights is 0")
                 sumw = 1.0
             sumw_dict[filepath_i]=sumw
-    for j in range(len(selections)):
-        selection_j = selections[j]
-        output_file_j = ROOT.TFile(f"{output_names[j]}", "RECREATE")
-        outputs.append(output_file_j)
-        for k in range(len(files)):
-            rdf_j_k=ROOT.RDataFrame(trees[k], files[k])
-            rdf_j_k = rdf_j_k.Filter(cuts.combine(cuts.trigger(), cuts.dxy_valid(mass))).Filter(selection_j)
-            if isMC[k]:
-                weight_formula_k = cuts.mc_weight(sumw_dict[files[k]])
-                rdf_j_k = rdf_j_k.Filter(cuts.combine(cuts.preselection(mass), cuts.photon_id(mass, photon_id), cuts.pileup())).Define("event_weight", weight_formula_k)
-                hist_j_k = rdf_j_k.Histo1D((f"{histo_names[j][k]}", f"{j}_{k};{var};Events", bins[0], bins[1], bins[2]), f"{var}", "event_weight")
-                hist_j_k.Scale(file_scalings[k])
-                hist_j_k.Write()
-                histo_obj[j].append(hist_j_k)
-            else:
-                rdf_j_k = rdf_j_k.Filter(cuts.combine(cuts.preselection(mass), cuts.photon_id(mass, photon_id), cuts.sidebands(mass)))
-                hist_j_k = rdf_j_k.Histo1D((f"{histo_names[j][k]}", f"{j}_{k};{var};Events", fit_bins[0], fit_bins[1], fit_bins[2]), f"{var}")
-                hist_j_k.Scale(file_scalings[k])
-                hist_j_k.Write()
-                histo_obj[j].append(hist_j_k)
-        output_file_j.Close()
-    return outputs, output_names, histo_names, histo_obj
+    output_file = ROOT.TFile(output_name, "RECREATE")
+    for i in range(file_num):
+        dataframe = ROOT.RDataFrame(trees[i], files[i])
+        dataframe = dataframe.Filter(cuts.combine(cuts.trigger(), cuts.dxy_valid(mass)))
+
+        if isMC[i]:
+            weight_formula = cuts.mc_weight(sumw_dict[files[i]])
+            dataframe = dataframe.Filter(cuts.combine(cuts.preselection(mass),cuts.photon_id(mass, photon_id),cuts.pileup()))
+            dataframe=dataframe.Define("event_weight", weight_formula)
+            histogram = dataframe.Histo1D((histo_names[i], f"{i};{var};Events", bins[0], bins[1], bins[2]),var,"event_weight")
+        else:
+            dataframe = dataframe.Filter(cuts.combine(cuts.preselection(mass),cuts.photon_id(mass, photon_id),cuts.sidebands(mass)))
+            histogram = dataframe.Histo1D((histo_names[i], f"{i};{var};Events", fit_bins[0], fit_bins[1], fit_bins[2]),var)
+
+        histogram.Scale(file_scalings[i])
+        histogram.Write()
+        histo_obj.append(histogram)
+    output_file.Close()
+    return output_name, histo_names, histo_obj
 
 def extract_JSON(root_filename, workspace_name, json_filename):
     '''

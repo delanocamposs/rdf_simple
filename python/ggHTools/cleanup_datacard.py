@@ -4,8 +4,8 @@ import shutil
 import sys
 from glob import glob
 
-file_patterns = ["datacard_ggH_4g_m*_ct*_*_*.txt","datacardInputs_ggH_4g_m*_ct*_*_*.root"]
-directory_patterns = ["m*_ct*_*_*_4g_ggH"]
+file_patterns = ["datacard_ggH_4g_m*_ct*.txt", "datacardInputs_ggH_4g_m*_ct*.root"]
+directory_patterns = ["m*_ct*_*_4g_ggH"]
 def dir_size(path):
     total=0
     for root, _, files in os.walk(path):

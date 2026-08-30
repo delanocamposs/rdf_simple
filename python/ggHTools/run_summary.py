@@ -1,8 +1,7 @@
 import warnings
 from plotting import plot_summary
-from plotting.plot_summary import year_config
 from datacard.ggHdatacardmaker import recommended_photon_id
-from ggHparameters import signal_masses, signal_ctaus, run2_data_years, run3_data_years
+from ggHparameters import signal_masses, signal_ctaus, run2_data_years, run3_data_years, year_config
 import argparse
 import os
 

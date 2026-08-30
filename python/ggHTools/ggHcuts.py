@@ -21,6 +21,7 @@ def preselection(mass):
 
 #4 best photons per event pass dR isolation
 #not just chekcing the final pair, all combos
+# we dont want any of the best 4 photons to be close
 def deltaR(mass, minimum=delta_r_cut):
     indices = [f"best_4g_idx{i}_m{mass}" for i in range(1, 5)]
     pair_expressions = []
@@ -54,3 +55,11 @@ def sidebands(mass, lower=lower_sb, upper=upper_sb):
 #helper function to easily combine cuts
 def combine(*cuts):
     return " && ".join(f"({c})" for c in cuts if c)
+
+#data cuts
+def background_selection(mass, workingpoint):
+    return combine(trigger_and_pT(mass),dxy_valid(mass),preselection(mass),deltaR(mass),photon_id(mass, workingpoint),sidebands(mass))
+
+#signal MC cuts
+def signal_selection(mass, workingpoint):
+    return combine(trigger_and_pT(mass),dxy_valid(mass),preselection(mass),deltaR(mass),photon_id(mass, workingpoint),pileup())

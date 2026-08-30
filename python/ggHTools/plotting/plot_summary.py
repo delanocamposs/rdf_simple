@@ -3,7 +3,7 @@ from datacard import ggHfitter
 from datacard.ggHdatacardmaker import recommended_photon_id
 from plotting.style import tdrstyle
 from plotting.style import CMS_lumi
-from ggHparameters import (lumi, signal_path, bkg_path, signal_window, order_fit, lower_sb, upper_sb,summary_bin_width, run2_data_years, run2_signal_years, run3_data_years,run3_signal_years)
+from ggHparameters import (lumi, signal_path, bkg_path, signal_window, order_fit, lower_sb, upper_sb,summary_bin_width, year_config)
 import ggHcuts as cuts
 from plotting.plottingtools import fetchError, save_histos
 import os
@@ -13,26 +13,7 @@ sb_bins=[int(round((upper_sb[1]-lower_sb[0])/summary_bin_width)), lower_sb[0], u
 residual_scale=1.3
 pad2_top=0.25*residual_scale
 pad1_bottom=pad2_top+0.05
-year_config={
-    "2017":{"data_years":["2017"],"signal_years":["2017"],"period":4},
-    "2018":{"data_years":["2018"],"signal_years":["2018"],"period":4},
-    "Run2":{"data_years":run2_data_years,"signal_years":run2_signal_years,"period":4},
-    "2022":{"data_years":["2022"],"signal_years":["2022preEE","2022postEE"],"period":5},
-    "2023":{"data_years":["2023"],"signal_years":["2023preBPix","2023postBPix"],"period":5},
-    "2024":{"data_years":["2024"],"signal_years":["2024"],"period":5},
-    "Run3":{"data_years":run3_data_years,"signal_years":run3_signal_years,"period":5},
-}
-
-
 data_cache={}
-
-
-def data_selection(mass, photon_id):
-    return cuts.combine(cuts.trigger_and_pT(mass),cuts.dxy_valid(mass),cuts.preselection(mass),cuts.deltaR(mass),cuts.photon_id(mass, photon_id),cuts.sidebands(mass))
-
-
-def signal_selection(mass, photon_id):
-    return cuts.combine(cuts.trigger_and_pT(mass),cuts.dxy_valid(mass),cuts.preselection(mass),cuts.deltaR(mass),cuts.photon_id(mass, photon_id),cuts.pileup())
 
 
 def sum_gen_weights(path):
@@ -43,7 +24,7 @@ def sum_gen_weights(path):
 def data_histogram(year, mass, config, bins, photon_id):
     key=(year, str(mass), tuple(bins), photon_id)
     if key not in data_cache:
-        data_cut=data_selection(mass, photon_id)
+        data_cut=cuts.background_selection(mass, photon_id)
         total=None
         for y in config["data_years"]:
             data_df=ROOT.RDataFrame("ggH4g", bkg_path(y)).Filter(data_cut)
@@ -87,7 +68,7 @@ def run(mass, ctau, year, output_dir, work_dir=None, formats=("png","pdf")):
 
     #signal histogram built separately for each year.
     h_sig_total = None
-    sig_cut=signal_selection(mass, photon_id)
+    sig_cut=cuts.signal_selection(mass, photon_id)
     for y in years_to_process:
         sig_y = signal_path(mass, ctau, y)
         sumw_y = sum_gen_weights(sig_y)

@@ -50,15 +50,14 @@ def sig_bkg_histos(files, isMC, trees, mass, var, output_name, bins, photon_id,h
     output_file = ROOT.TFile(output_name, "RECREATE")
     for i in range(file_num):
         dataframe = ROOT.RDataFrame(trees[i], files[i])
-        dataframe = dataframe.Filter(cuts.combine(cuts.trigger(), cuts.dxy_valid(mass)))
 
         if isMC[i]:
             weight_formula = cuts.mc_weight(sumw_dict[files[i]])
-            dataframe = dataframe.Filter(cuts.combine(cuts.preselection(mass),cuts.photon_id(mass, photon_id),cuts.pileup()))
+            dataframe = dataframe.Filter(cuts.signal_selection(mass, photon_id))
             dataframe=dataframe.Define("event_weight", weight_formula)
             histogram = dataframe.Histo1D((histo_names[i], f"{i};{var};Events", bins[0], bins[1], bins[2]),var,"event_weight")
         else:
-            dataframe = dataframe.Filter(cuts.combine(cuts.preselection(mass),cuts.photon_id(mass, photon_id),cuts.sidebands(mass)))
+            dataframe = dataframe.Filter(cuts.background_selection(mass, photon_id))
             histogram = dataframe.Histo1D((histo_names[i], f"{i};{var};Events", fit_bins[0], fit_bins[1], fit_bins[2]),var)
 
         histogram.Scale(file_scalings[i])

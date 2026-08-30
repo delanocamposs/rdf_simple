@@ -18,7 +18,7 @@ def run(era_token, masses=None, lifetimes=None, rescan=False):
     lifetimes = list(signal_ctaus if lifetimes is None else lifetimes)
     results_json = f"limits_UL_vs_mass_{era}.json"
     if os.path.exists(results_json) and not rescan:
-        print(f"loading cached limits from {results_json} (pass -r to re-run)")
+        print(f"loading cached limits from {results_json} (pass -rescan to re-run)")
         results = plot_upperLimits.load_results(results_json)
     else:
         results = plot_upperLimits.scan_mass_lifetime(masses, lifetimes, era, years, bins=bins, finalstate=finalstate, physics=physics, order_fit=order_fit, results_json=results_json)

@@ -91,4 +91,4 @@ The single-point command creates the directory `m40_ct100_2018_4g_ggH` and write
 # Datacards
 `datacard/` has files that go into the details on how the datacards are built. It deals alot with the fitting infrastructure and building RooWorkSpaces and putting the parametric model in the workspace and what not. Its the under-the-hood details on building the datacards.
 # Plotting
-`plotting/` of course contains the main plotters that do the dirty work to generate the canvases, but there are also some auxilliary scripts I added under `plotting/studies/.`These are plotters not used to necessarily show results but rather useful in studies we performed that are not necessarily the "killer plots" for the analysis
+`plotting/` of course contains the main plotters that do the dirty work to generate the canvases, but there are also some auxilliary scripts I added under `plotting/studies/.` [I REMOVED THESE TEMPORARILY SINCE THE STUDIES PLOTTERS BROKE AFTER MANY STRUCTURAL CHANGES. NOT SUPER IMPORTANT]. These are plotters not used to necessarily show results but rather useful in studies we performed that are not necessarily the "killer plots" for the analysis

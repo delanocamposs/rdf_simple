@@ -1,14 +1,14 @@
+import os
+
 import ROOT
-import subprocess
 from plotting.style import tdrstyle
 from plotting.style import CMS_lumi
-from datacard.ggHdatacardmaker import main
-from ggHparameters import lumi, order_fit, signal_window
-from plotting.plottingtools import fetchError, getPoisson, getPoisson2
+from ggHparameters import lumi, signal_window, year_config
+from plotting.plottingtools import fetchError
 
 
-def _load_prefit_band(finalstate, physics, mass, lifetime, cat, year):
-    path = f"m{mass}_ct{lifetime}_{cat}_{year}_{finalstate}_{physics}/fit_bkg_m{mass}_ct{lifetime}_{cat}_{year}_fit.root"
+def load_prefit_band(finalstate, physics, mass, lifetime, year):
+    path = f"m{mass}_ct{lifetime}_{year}_{finalstate}_{physics}/fit_bkg_m{mass}_ct{lifetime}_{year}_fit.root"
     cf = ROOT.TFile(path)
     if not cf or cf.IsZombie():
         return None
@@ -22,7 +22,10 @@ def _load_prefit_band(finalstate, physics, mass, lifetime, cat, year):
     cf.Close()
     return g2c, g1c
 
-def plot(MultiDimFit, fitDiagnosticsTest, cat, year, bins, finalstate, physics, mass, lifetime, order=order_fit):
+def plot(MultiDimFit, fitDiagnosticsTest, year, bins, finalstate, physics, mass,
+         lifetime, output_dir=".", formats=("png", "pdf")):
+    os.makedirs(output_dir, exist_ok=True)
+    outputs = []
     loop=0
     for j in range(2):
         tdrstyle.setTDRStyle()
@@ -33,7 +36,6 @@ def plot(MultiDimFit, fitDiagnosticsTest, cat, year, bins, finalstate, physics, 
         ROOT.gStyle.SetEndErrorSize(2)
         f1 = ROOT.TFile(MultiDimFit)
         f2 = ROOT.TFile(fitDiagnosticsTest)
-        r1 = f2.Get("fit_s")
         r2 = f2.Get("fit_b")
         w = f1.Get("w")
         
@@ -89,19 +91,20 @@ def plot(MultiDimFit, fitDiagnosticsTest, cat, year, bins, finalstate, physics, 
         gres1.SetMarkerStyle(20)
 
         #grab the s+b and b models from the RooWorkspace and get the normalizations of the models after the fits
-        sb_model  = w.pdf("model_s").getPdf(f"{physics}_{finalstate}_m{mass}_ct{lifetime}_{cat}_{year}")
-        b_model   = w.pdf("model_b").getPdf(f"{physics}_{finalstate}_m{mass}_ct{lifetime}_{cat}_{year}")
+        channel = f"{physics}_{finalstate}_m{mass}_ct{lifetime}_{year}"
+        sb_model  = w.pdf("model_s").getPdf(channel)
+        b_model   = w.pdf("model_b").getPdf(channel)
         if loop==0:
             w.loadSnapshot("MultiDimFit")
         norm_name = "norm_fit_s" if loop == 0 else "norm_prefit"
         norm_fit = f2.Get(norm_name)
         if not isinstance(norm_fit, ROOT.RooArgSet):
-            print(f"skipping postfit plot for {cat} ({year}): combine fit failed, no {norm_name} normalizations")
+            print(f"skipping postfit plot for {year}: combine fit failed, no {norm_name} normalizations")
             f1.Close()
             f2.Close()
             return
-        bkg_norm = norm_fit.find(f"{physics}_{finalstate}_m{mass}_ct{lifetime}_{cat}_{year}/background").getVal()
-        sig_norm = norm_fit.find(f"{physics}_{finalstate}_m{mass}_ct{lifetime}_{cat}_{year}/signal").getVal()
+        bkg_norm = norm_fit.find(f"{channel}/background").getVal()
+        sig_norm = norm_fit.find(f"{channel}/signal").getVal()
         fit_label = "postfit" if loop==0 else "prefit"
         print(f"[{fit_label}] SIGNAL YIELD in [{signal_window[0]},{signal_window[1]}]: {sig_norm:.4f}")
         print(f"[{fit_label}] BKG YIELD in [{signal_window[0]},{signal_window[1]}]: {bkg_norm:.4f}")
@@ -113,7 +116,7 @@ def plot(MultiDimFit, fitDiagnosticsTest, cat, year, bins, finalstate, physics, 
         #plotting. the oreder here matters alot in order to get the brazil plot colors to show up correctly and to get the data points on top of everything
         cloned_data_binned.plotOn(plot,ROOT.RooFit.Binning(bins[0], bins[1], bins[2]),ROOT.RooFit.MarkerStyle(20),ROOT.RooFit.LineColor(ROOT.kBlack),ROOT.RooFit.Name("data_points"), XErrorSize=0, DataError=None)
 
-        prefit_band = _load_prefit_band(finalstate, physics, mass, lifetime, cat, year) if loop==1 else None
+        prefit_band = load_prefit_band(finalstate, physics, mass, lifetime, year) if loop==1 else None
         if loop==0 and data_obs_TH1.Integral()!=0:
             try:
                 b_model.plotOn(plot,ROOT.RooFit.VisualizeError(r2, 2, ROOT.kFALSE),ROOT.RooFit.Normalization(bkg_norm, ROOT.RooAbsReal.NumEvent),ROOT.RooFit.FillColor(ROOT.kYellow),ROOT.RooFit.LineColor(ROOT.kBlack),ROOT.RooFit.Name("bkg_2sigma"),ROOT.RooFit.DrawOption("F"))
@@ -170,10 +173,7 @@ def plot(MultiDimFit, fitDiagnosticsTest, cat, year, bins, finalstate, physics, 
         cate = ROOT.TLatex()
         cate.SetTextSize(0.043)
         cate.DrawLatexNDC(0.59, 0.84, f"c#tau = {lifetime} mm, m_{{#phi}} = {mass} GeV")
-        cat_label = {"asym": "asymmetric", "none": "combined", "all": "combined"}.get(cat, cat)
-        cate.DrawLatexNDC(0.59, 0.78, f"category: {cat_label}")
-        #cate.DrawLatexNDC(0.59, 0.72, f"order = {order}")
-        cate.DrawLatexNDC(0.59, 0.72, fit_label)
+        cate.DrawLatexNDC(0.59, 0.78, fit_label)
         leg.AddEntry(gres1,"Background Data", "pe")
         leg.AddEntry("sb_curve","S+B fit sum", "L")
         leg.AddEntry("bkg_curve", "B component", "L")
@@ -224,9 +224,6 @@ def plot(MultiDimFit, fitDiagnosticsTest, cat, year, bins, finalstate, physics, 
         nres  = resid_hist.GetN()
         xs = resid_hist.GetX()
         ys = resid_hist.GetY()
-        x_vals = [xs[i] for i in range(nres)]
-        y_vals = [ys[i] for i in range(nres)]
-
         #define the residual data points and set errors/locations manually
         g_res=ROOT.TGraphAsymmErrors()
         q = (1-0.6827)/2.0
@@ -308,7 +305,7 @@ def plot(MultiDimFit, fitDiagnosticsTest, cat, year, bins, finalstate, physics, 
         leg2.SetFillStyle(0)
         leg2.Draw("Same")
         pad1.cd()
-        iPeriod = 4 if year in {"2017", "2018", "Run2"} else 5
+        iPeriod = year_config[year]["period"]
         CMS_lumi.cmsTextSize = 0.85
         CMS_lumi.lumiTextSize = 0.6
         CMS_lumi.lumiTextRightOffset = 0.0
@@ -316,11 +313,13 @@ def plot(MultiDimFit, fitDiagnosticsTest, cat, year, bins, finalstate, physics, 
         can.Update()
         can.cd()
         can.Update()
-        if loop==0:
-            can.SaveAs(f"postfit_{cat}_{year}_m{mass}_ct{lifetime}.png")
-            can.SaveAs(f"postfit_{cat}_{year}_m{mass}_ct{lifetime}.pdf")
-        else:
-            can.SaveAs(f"prefit_{cat}_{year}_m{mass}_ct{lifetime}.png")
-            can.SaveAs(f"prefit_{cat}_{year}_m{mass}_ct{lifetime}.pdf")
+        basename = f"{fit_label}_{year}_m{mass}_ct{lifetime}"
+        for extension in formats:
+            output = os.path.join(output_dir, f"{basename}.{extension}")
+            can.SaveAs(output)
+            outputs.append(output)
+        can.Close()
+        f1.Close()
+        f2.Close()
         loop+=1
-
+    return outputs

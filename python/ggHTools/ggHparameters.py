@@ -11,6 +11,15 @@ run3_signal_years=["2022preEE","2022postEE","2023preBPix","2023postBPix","2024"]
 run2_data_years=["2017","2018"]
 run3_data_years=["2022","2023","2024"]
 combined_data_years=("Run2","Run3")
+year_config={
+    "2017":{"data_years":["2017"],"signal_years":["2017"],"period":4},
+    "2018":{"data_years":["2018"],"signal_years":["2018"],"period":4},
+    "Run2":{"data_years":run2_data_years,"signal_years":run2_signal_years,"period":4},
+    "2022":{"data_years":["2022"],"signal_years":["2022preEE","2022postEE"],"period":5},
+    "2023":{"data_years":["2023"],"signal_years":["2023preBPix","2023postBPix"],"period":5},
+    "2024":{"data_years":["2024"],"signal_years":["2024"],"period":5},
+    "Run3":{"data_years":run3_data_years,"signal_years":run3_signal_years,"period":5},
+}
 delta_r_cut = 0.3
 
 def signal_path(mass, ctau, year):
@@ -94,5 +103,3 @@ dcb_n2 = (2, 1, 50)
 
 bernstein_coeff = (0, 10000)
 bernstein_coeff_card = (0, 10000)
-
-

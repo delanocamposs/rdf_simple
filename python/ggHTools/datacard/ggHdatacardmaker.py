@@ -71,7 +71,10 @@ def main(paths, isMC, trees, var, period, bins, lifetime, mass,finalstate="4g", 
 #generates the signal and background histograms
     th1d_filename, th1d_histos, th1d_histo_obj = datacardtools.sig_bkg_histos(paths, isMC, trees, mass, var, output_name, bins, photon_id, histo_names=histo_names, lumi_scaling=lumi_scaling, file_scalings=file_scalings)
 
-    N_sb=th1d_histo_obj[background_index].Integral()
+    N_sb_raw=float(th1d_histo_obj[background_index].Integral())
+    N_sb=int(round(N_sb_raw))
+    if not np.isclose(N_sb_raw, N_sb, rtol=0.0, atol=1e-9):
+        raise ValueError("background sideband yield must be an unweighted integer count, found {}".format(N_sb_raw))
     dcm_year = DatacardWorkspace(finalstate, period, lifetime, mass, lumi[year], physics)
 
     signal_hist_name = "signal_combined"
@@ -86,6 +89,8 @@ def main(paths, isMC, trees, var, period, bins, lifetime, mass,finalstate="4g", 
 
 # i have to fit bkg twice. 1: to generate fake data 2: actual combine bkg fit
     ratio = ggHfitter.fitBKG(th1d_filename, th1d_histos[background_index], f"fit_bkg_m{mass}_ct{lifetime}_{year}_fit.root", order=order_fit)
+    if not np.isfinite(ratio) or ratio <= 0.0:
+        raise ValueError("fitted SR/sideband extrapolation ratio must be finite and positive, found {}".format(ratio))
     datacardtools.extract_JSON(f"fit_bkg_m{mass}_ct{lifetime}_{year}_fit.root", "w", f"bkg_parameters_m{mass}_ct{lifetime}_{year}_fit.json")
     ggHfitter.fitBKG(th1d_filename, th1d_histos[background_index], f"fit_bkg_m{mass}_ct{lifetime}_{year}_gen.root", order=order_gen)
     datacardtools.extract_JSON(f"fit_bkg_m{mass}_ct{lifetime}_{year}_gen.root", "w", f"bkg_parameters_m{mass}_ct{lifetime}_{year}_gen.json")
@@ -104,7 +109,8 @@ def main(paths, isMC, trees, var, period, bins, lifetime, mass,finalstate="4g", 
     dcm_year.addSystematic(name=f"xsec_unc_m{mass}_ct{lifetime}_{year}", kind = "lnN", values={"signal":f"{1-xsec_quad_down}/{1+xsec_quad_up}"})
     dcm_year.addSystematic(name=f"lumi_unc_m{mass}_ct{lifetime}_{year}", kind = "lnN", values={"signal":"{}".format(1+lumi_unc[year])})
     dcm_year.addSystematic(name=f"PDF_alphas_unc_m{mass}_ct{lifetime}_{year}", kind = "lnN", values={"signal":"{}".format(1+PDF_alphas_unc)})
-    dcm_year.addSystematic(name=f"bkg_rate_m{mass}_ct{lifetime}_{year}", kind = "rateParam", values=[dcm_year.tag, "background", "1", "[0,10]"])
+    #dcm_year.addSystematic(name=f"bkg_rate_m{mass}_ct{lifetime}_{year}", kind = "rateParam", values=[dcm_year.tag, "background", "1", "[0,10]"])
+    dcm_year.addGmN(name=f"bkg_sideband_stat_m{mass}_ct{lifetime}_{year}", count=N_sb, values={"background":ratio})
 
 #yields are added by integrating the histograms for sig and bkg
     dcm_year.addFixedYield(name="background", ID=1, value=bkg_rate)

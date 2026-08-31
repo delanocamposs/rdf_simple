@@ -90,7 +90,7 @@ def scan_mass_lifetime(masses, lifetimes, era, years, bins, finalstate="4g", phy
                 bkg = bkg_path(year)
                 make_datacard(paths=signals+[bkg], isMC=[1]*len(signals)+[0], trees=["ggH4g"]*(len(signals)+1), var=f"best_4g_corr_mass_m{mass}", period=year, bins=bins, lifetime=ctau, mass=mass, finalstate=finalstate, physics=physics, order_fit=order_fit, signal_lumis=[lumi[signal_year] for signal_year in signal_years])
                 card = f"datacard_{physics}_{finalstate}_m{mass}_ct{ctau}_{year}.txt"
-                labelled_cards.append((year, card))
+                labelled_cards.append((f"ch{year}", card))
 
             combined_txt = f"datacard_{physics}_{finalstate}_m{mass}_ct{ctau}_{era}.txt"
             combined_root = f"datacard_{physics}_{finalstate}_m{mass}_ct{ctau}_{era}.root"

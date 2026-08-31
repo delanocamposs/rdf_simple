@@ -1,6 +1,7 @@
 import ROOT
 ROOT.gSystem.Load("libHiggsAnalysisCombinedLimit")
 import json
+import math
 from ggHparameters import signal_window, bernstein_coeff_card
 
 
@@ -24,6 +25,18 @@ class DatacardWorkspace:
 
     def addSystematic(self,name,kind,values):
         self.systematics.append({'name':name,'kind':kind,'values':values })
+
+
+    def addGmN(self,name,count,values):
+        alphas={}
+        count_int = int(count)
+        if count_int != count or count_int < 0:
+            raise ValueError("gmN control count must be a nonnegative integer")
+        for process, alpha in values.items():
+            if not math.isfinite(float(alpha)) or float(alpha) <= 0.0:
+                raise ValueError("gmN alpha for {} must be finite and positive".format(process))
+            alphas[process] = float(alpha)
+        self.systematics.append({'name': name,'kind': 'gmN','count': count_int,'values': alphas})
 
 
     def addDCB(self, name, variable, jsonFile, scale={}, resolution={}):
@@ -156,6 +169,21 @@ class DatacardWorkspace:
         #Sort the shapes by ID
 
         shapes = sorted(self.contributions,key=lambda x: x['ID'])
+        shapes_by_name = {shape['name']: shape for shape in shapes}
+        for syst in self.systematics:
+            if syst['kind'] != 'gmN':
+                continue
+            for process, alpha in syst['values'].items():
+                if process not in shapes_by_name:
+                    raise ValueError("gmN systematic {} refers to unknown process {}".format(syst['name'], process))
+                rate = float(shapes_by_name[process]['yield'])
+                expected_rate = syst['count'] * alpha
+                if not math.isclose(rate, expected_rate, rel_tol=1e-9, abs_tol=1e-12):
+                    raise ValueError(
+                        "gmN systematic {} requires rate {} for {} (N={} alpha={}), found {}".format(
+                            syst['name'], expected_rate, process, syst['count'], alpha, rate
+                        )
+                    )
         #print names
         f.write('process\t')
         for shape in shapes:
@@ -171,7 +199,8 @@ class DatacardWorkspace:
         #print rates
         f.write('rate\t')
         for shape in shapes:
-            if shape['yield']==0:
+            has_zero_gmn = any(syst['kind'] == 'gmN' and syst['count'] == 0 and shape['name'] in syst['values'] for syst in self.systematics)
+            if shape['yield']==0 and not has_zero_gmn:
                 f.write("0.00000000001" + '\t')
             else:
                 f.write(str(shape['yield'])+'\t')
@@ -210,6 +239,15 @@ class DatacardWorkspace:
                     if not has:
                             f.write('-\t' )
                 f.write('\n' )
+
+            elif syst['kind'] == 'gmN':
+                f.write(syst['name']+'\tgmN\t'+str(syst['count'])+'\t')
+                for shape in shapes:
+                    if shape['name'] in syst['values']:
+                        f.write(str(syst['values'][shape['name']])+'\t')
+                    else:
+                        f.write('-\t')
+                f.write('\n')
 
             elif syst['kind'] == 'rateParam':
                 f.write(syst['name']+'\t'+'rateParam\t' +str(syst['values'][0])+'\t'+str(syst['values'][1])+'\t'+str(syst['values'][2])+'\t'+str(syst['values'][3])+'\n')

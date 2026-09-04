@@ -50,16 +50,16 @@ def trigger_pt_requirement(era,term):
     thresholds=run3_trigger_pt if era in run3_eras else run2_trigger_pt
     return " && ".join(f"Sum({term.format(pt=t)})>={k}" for k,t in enumerate(thresholds,1))
 
-# Common Object ID:
+#all details relating to the photon analyzer is detailed in the official recommendations from EGM POG.
 def photonAna(dataframe, era):
-    # Overlap with loose leptons
-    #photons = dataframe.Define("Photon_muOverlap", "overlapClean(Photon_phi, Photon_eta, Muon_phi[loose_muon], Muon_eta[loose_muon])")
-    #photons = photons.Define("Photon_eleOverlap", "overlapClean(Photon_phi, Photon_eta, Electron_phi[loose_electron], Electron_eta[loose_electron])")
-    #photons = photons.Define("Photon_overlap", "Photon_muOverlap||Photon_eleOverlap")
+    #per EGM, supercluster eta should be used instead of eta. SFs access the val's through scEta
+    #jusstified through: https://twiki.cern.ch/twiki/bin/view/CMS/EgammaNanoAOD
+    photons = dataframe.Define("Photon_scEta","photonScEta(Photon_eta,Photon_phi,Photon_isScEtaEB,Photon_isScEtaEE,PV_x,PV_y,PV_z)")
 
-    #this preselection should be the same for both custom ID and standard EGM ID
-    photons = dataframe.Define("Photon_preselection", "Photon_pt>0&&!Photon_pixelSeed&&abs(Photon_eta)<2.5&&(abs(Photon_eta)>1.57||abs(Photon_eta)<1.44)&&(Photon_isScEtaEE||Photon_isScEtaEB)")
-    #photons = photons.Define("Photon_rho", "fixedGridRhoFastjetAll")
+    #the definition of scEtaEE/EB via CMSSW: PhysicsTools/NanoAOD/python/photons_cff.py. they include precise scEta cuts by definition
+    #1.4442<|sceta|<1.566 and  |sceta|<2.5 are baked into the defintion of Photon_isScEtaEE and Photon_isScEtaEB.
+    #including them as manual cuts is wrong (cutting on eta and not scEta) and redundant.
+    photons = photons.Define("Photon_preselection","Photon_pt>0&&!Photon_pixelSeed&&(Photon_isScEtaEE||Photon_isScEtaEB)")
     ph_iso_wp="phIsoWP_Run3" if era in run3_eras else "phIsoWP_Run2"
     ch_iso_wp="chIsoWP_Run3" if era in run3_eras else "chIsoWP_Run2"
     neu_iso_wp="hcalIsoWP_Run3" if era in run3_eras else "neuIsoWP_Run2"
@@ -211,9 +211,9 @@ def ggH(data,phi_mass,sample):
 
     def scale_factors(df, era):
         if era in ['2023preBPix','2023postBPix']:
-            df=df.Define("pho_SFs_id_LooseEGM",f"scaleFactors_3d(Photon_phi,Photon_eta,Photon_pt,PHO_ID_{era}_sf,PHO_ID_{era}_binsX,PHO_ID_{era}_binsY,PHO_ID_{era}_binsZ,sample_isMC,Photon_passFullCutBasedID_LooseEGM)")
+            df=df.Define("pho_SFs_id_LooseEGM",f"scaleFactors_3d(Photon_phi,Photon_scEta,Photon_pt,PHO_ID_{era}_sf,PHO_ID_{era}_binsX,PHO_ID_{era}_binsY,PHO_ID_{era}_binsZ,sample_isMC,Photon_passFullCutBasedID_LooseEGM)")
         else:
-            df=df.Define("pho_SFs_id_LooseEGM",f"scaleFactors_2d(Photon_eta,Photon_pt,PHO_ID_{era}_sf,PHO_ID_{era}_binsX,PHO_ID_{era}_binsY,sample_isMC,Photon_passFullCutBasedID_LooseEGM)")
+            df=df.Define("pho_SFs_id_LooseEGM",f"scaleFactors_2d(Photon_scEta,Photon_pt,PHO_ID_{era}_sf,PHO_ID_{era}_binsX,PHO_ID_{era}_binsY,sample_isMC,Photon_passFullCutBasedID_LooseEGM)")
         df=df.Define("Photon_idSF_LooseEGM_val","pho_SFs_id_LooseEGM[0]")
         df=df.Define("Photon_idSF_LooseEGM_up","pho_SFs_id_LooseEGM[1]+pho_SFs_id_LooseEGM[0]")
         df=df.Define("Photon_idSF_LooseEGM_down","pho_SFs_id_LooseEGM[0]-pho_SFs_id_LooseEGM[1]")

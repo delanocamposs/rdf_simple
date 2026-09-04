@@ -811,6 +811,60 @@ RVecF getctau(RVecF dx, RVecF dy, RVecF dz, RVecF pt, RVecF eta, RVecF phi, RVec
   return out;
 }
 
+//per EGM recommendations, ScEta needs to be used insted of just Eta. The way we access SFs is through ScEta, not Eta.
+//see: https://twiki.cern.ch/twiki/bin/view/CMS/EgammaIDRecipesRun2
+//and: https://twiki.cern.ch/twiki/bin/view/CMS/EgammaNanoAOD
+//with example function at: https://swmukher.web.cern.ch/swmukher/scEtaPhoNanoAOD.C
+float photonScEtaValue(const int i,const RVecF& Photon_eta,const RVecF& Photon_phi,const RVecB& Photon_isScEtaEB,const RVecB& Photon_isScEtaEE,const float PV_x,const float PV_y,const float PV_z){
+  float tg_theta_over_2=exp(-Photon_eta[i]);
+  float tg_theta=2*tg_theta_over_2/(1-tg_theta_over_2*tg_theta_over_2);
+  float tg_sctheta;
+
+  if (Photon_isScEtaEB[i]){
+    float R=130;
+    float angle_x0_y0=0;
+    if (PV_x>0) angle_x0_y0=atan(PV_y/PV_x);
+    else if (PV_x<0) angle_x0_y0=M_PI+atan(PV_y/PV_x);
+    else if (PV_y>0) angle_x0_y0=M_PI/2;
+    else angle_x0_y0=-M_PI/2;
+
+    float alpha=angle_x0_y0+(M_PI-Photon_phi[i]);
+    float sin_beta=sqrt(PV_x*PV_x+PV_y*PV_y)/R*sin(alpha);
+    float beta=abs(asin(sin_beta));
+    float gamma=M_PI/2-alpha-beta;
+    float l=sqrt(R*R+(PV_x*PV_x+PV_y*PV_y)-2*R*sqrt(PV_x*PV_x+PV_y*PV_y)*cos(gamma));
+
+    float z0_zSC=l/tg_theta;
+    tg_sctheta=R/(PV_z+z0_zSC);
+
+  } else if (Photon_isScEtaEE[i]){
+
+    float intersection_z=(Photon_eta[i]>0)?310:-310;
+    float base=intersection_z-PV_z;
+    float r=base*tg_theta;
+
+    float crystalX=PV_x+r*cos(Photon_phi[i]);
+    float crystalY=PV_y+r*sin(Photon_phi[i]);
+    tg_sctheta=sqrt(crystalX*crystalX+crystalY*crystalY)/intersection_z;
+  }
+  else return Photon_eta[i];
+
+  float sctheta=atan(tg_sctheta);
+  if (sctheta<0) sctheta+=M_PI;
+  float tg_sctheta_over_2=tan(sctheta/2);
+  float SCEta=-log(tg_sctheta_over_2);
+
+  return SCEta;
+}
+
+RVecF photonScEta(RVecF Photon_eta, RVecF Photon_phi, RVecB Photon_isScEtaEB, RVecB Photon_isScEtaEE, const float PV_x, const float PV_y, const float PV_z){
+  RVecF out;
+  out.reserve(Photon_eta.size());
+  for (size_t i=0;i<Photon_eta.size();i++)
+    out.emplace_back(photonScEtaValue((int)i,Photon_eta,Photon_phi,Photon_isScEtaEB,Photon_isScEtaEE,PV_x,PV_y,PV_z));
+  return out;
+}
+
 RVecF getGenScEta(RVecF vx, RVecF vy, RVecF vz, RVecF pt, RVecF eta, RVecF phi, RVecF mass){
   RVecF out;
   out.reserve(vx.size());

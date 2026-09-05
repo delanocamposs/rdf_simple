@@ -3,7 +3,7 @@ from ggHparameters import signal_window, lower_sb, upper_sb, dcb_mean, dcb_sigma
 ROOT.gROOT.SetBatch(False)
 
 
-def _decasteljau_split(ctrl, t):
+def decasteljau_split(ctrl, t):
     pts = list(ctrl)
     left = [pts[0]]
     right = [pts[-1]]
@@ -15,9 +15,9 @@ def _decasteljau_split(ctrl, t):
 
 
 def bernstein_subinterval(ctrl, u, v):
-    _, right = _decasteljau_split(ctrl, u)
+    _, right = decasteljau_split(ctrl, u)
     s = (v - u) / (1.0 - u)
-    left, _ = _decasteljau_split(right, s)
+    left, _ = decasteljau_split(right, s)
     return left
 
 

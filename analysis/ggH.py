@@ -236,11 +236,11 @@ def ggH(data,phi_mass,sample):
     ggH=dataframe["Events"].Filter("isGoodLumi","passed_lumiFilter")
     ggH=ggH.Filter("HLT_passed==1","passed_HLT")
 
+    #refer to LUM POG: https://twiki.cern.ch/twiki/bin/view/CMS/PileupJSONFileforData
+    #and the definitions at CMSW: https://github.com/cms-sw/cmssw/blob/master/PhysicsTools/NanoAOD/plugins/NPUTablesProducer.cc
+    #using nTrueInt solves large tail PU weights in MC. boils down to definition of branch nTrueInt. its the correct one to use here
     if data["isMC"]:
-        ggH = ggH.Define("Pileup_weight", f"getPUweight(Pileup_nPU, puWeight_{era}, sample_isMC)")
-
-    #ggH=ggH.Filter("Sum(loose_muon==1)==0",'muon_veto')
-    #ggH=ggH.Filter("Sum(loose_electron==1)==0",'electron_veto')
+        ggH = ggH.Define("Pileup_weight", f"getPUweight(Pileup_nTrueInt, puWeight_{era}, sample_isMC)")
 
     ggH=photonAna(ggH,era)
     ggH4g=ggH.Filter('nPhoton>3','at_least_4_photons')

@@ -62,4 +62,13 @@ def background_selection(mass, workingpoint):
 
 #signal MC cuts
 def signal_selection(mass, workingpoint):
-    return combine(trigger_and_pT(mass),dxy_valid(mass),preselection(mass),deltaR(mass),photon_id(mass, workingpoint),pileup())
+    return combine(trigger_and_pT(mass),dxy_valid(mass),preselection(mass),deltaR(mass),photon_id(mass,workingpoint),pileup())
+
+
+def mass_variable(mass):
+    return f"best_4g_corr_mass_m{mass}"
+
+def mass_window(mass,window):
+    low,high=window
+    variable=mass_variable(mass)
+    return f"{variable}>={low} && {variable}<={high}"

@@ -19,6 +19,9 @@ ROOT.gROOT.SetBatch(False)
 
 
 def sig_bkg_histos(files, isMC, trees, mass, var, output_name, bins, photon_id,histo_names=None, lumi_scaling=1, file_scalings=None):
+
+#### function that just builds signal and backgroudn histgorams with all cuts applied and returns the object
+
     if not (len(files) == len(isMC) == len(trees)):
         raise ValueError("files, isMC, and trees must have the same length")
     if file_scalings is None:
@@ -67,10 +70,9 @@ def sig_bkg_histos(files, isMC, trees, mass, var, output_name, bins, photon_id,h
     return output_name, histo_names, histo_obj
 
 def extract_JSON(root_filename, workspace_name, json_filename):
-    '''
-    creates a JSON file in the format the datcard needs from a root file, the name of the 
-    RooWorkspace in the file.
-    '''
+
+### makes a json file by extracting initial parameters from rooworkspace
+
     f = ROOT.TFile(root_filename)
     ws = f.Get(workspace_name)
     if not ws:
@@ -90,6 +92,9 @@ def extract_JSON(root_filename, workspace_name, json_filename):
 
 
 def generate_data_hist(file, bins_num, norm, output_name):
+
+### generates the fake psuedo data from random poisson sampling of the background 
+
     f=ROOT.TFile.Open(file)
     w=f.Get("w")
     pdf =w.pdf("model")
@@ -113,7 +118,9 @@ def generate_data_hist(file, bins_num, norm, output_name):
 
 
 def clopper_pearson(X, n, alpha=0.05):
-    "by default i am doing 95% CL, change alpha to change this: CL=1-alpha"
+
+# clopper pearson interval, default at 95% (CL=1-alpha)
+
     lower=beta.ppf(alpha/2, X,n-X+1)
     upper=beta.ppf(1-(alpha/2),X+1,n-X)
     return lower,upper

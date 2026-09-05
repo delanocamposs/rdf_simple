@@ -20,6 +20,15 @@ year_config={
     "2024":{"data_years":["2024"],"signal_years":["2024"],"period":5},
     "Run3":{"data_years":run3_data_years,"signal_years":run3_signal_years,"period":5},
 }
+# helper function to get the correct photon id by year (loose=run2, medium=run3)
+def recommended_photon_id(period):
+    period = str(period)
+    if period in ["2016", "2017", "2018", "Run2"]:
+        return "LooseEGM"
+    if period in ["2022", "2023", "2024", "2022preEE", "2022postEE", "2023preBPix", "2023postBPix", "Run3"]:
+        return "MediumEGM"
+    raise ValueError(f"no recommended photon ID is configured for period '{period}'")
+
 delta_r_cut = 0.3
 
 def signal_path(mass, ctau, year):
@@ -34,6 +43,9 @@ fit_window=(100,220)
 
 lower_sb=(fit_window[0],signal_window[0])
 upper_sb=(signal_window[1],fit_window[1])
+
+analysis_tree="ggH4g"
+
 
 n_bins = 30
 bins = [n_bins, signal_window[0], signal_window[1]]

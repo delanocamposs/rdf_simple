@@ -1,7 +1,7 @@
 from datacard import datacardtools
 from datacard import ggHfitter
 from datacard.ggHdatacardworkspace import DatacardWorkspace
-from ggHparameters import order_fit, order_gen, smear_resolution, lumi, xsec_unc, pdf_alphas_unc, lumi_unc
+from ggHparameters import order_fit, order_gen, smear_resolution, lumi, xsec_unc, pdf_alphas_unc, lumi_unc, recommended_photon_id
 import ROOT
 import subprocess
 import numpy as np
@@ -9,15 +9,6 @@ import numpy as np
 ROOT.gROOT.SetBatch(False)
 ROOT.RooMsgService.instance().setGlobalKillBelow(ROOT.RooFit.ERROR)
 ROOT.gErrorIgnoreLevel = ROOT.kError
-
-# helper function to get the correct photon id by year (loose=run2, medium=run3)
-def recommended_photon_id(period):
-    period = str(period)
-    if period in ["2016", "2017", "2018", "Run2"]:
-        return "LooseEGM"
-    if period in ["2022", "2023", "2024", "2022preEE", "2022postEE", "2023preBPix", "2023postBPix", "Run3"]:
-        return "MediumEGM"
-    raise ValueError(f"no recommended photon ID is configured for period '{period}'")
 
 def cleanup(year, finalstate, physics, mass, lifetime):
     output_dir = f"m{mass}_ct{lifetime}_{year}_{finalstate}_{physics}"

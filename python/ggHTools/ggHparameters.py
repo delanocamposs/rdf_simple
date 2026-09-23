@@ -1,12 +1,15 @@
 order_fit = 4
 order_gen = 4
 
+pseudodata_seed=8675309
+inject_r=0.0
+
 #obviously this will need to change if someone else is runing ggH
 eos_base = "/eos/uscms/store/user/dacampos/analysis"
 
-signal_masses = [15, 20, 30, 40, 50, 55]
-signal_ctaus = [0, 10, 20, 50, 100, 1000]
-run2_signal_years = ["2017", "2018"]
+signal_masses=[15, 20, 30, 40, 50, 55]
+signal_ctaus=[0, 10, 20, 50, 100, 1000]
+run2_signal_years=["2017", "2018"]
 run3_signal_years=["2022preEE","2022postEE","2023preBPix","2023postBPix","2024"]
 run2_data_years=["2017","2018"]
 run3_data_years=["2022","2023","2024"]
@@ -50,11 +53,11 @@ analysis_tree="ggH4g"
 n_bins = 30
 bins = [n_bins, signal_window[0], signal_window[1]]
 
-bin_width = (signal_window[1] - signal_window[0]) / n_bins
-n_fit_bins = int(round((fit_window[1] - fit_window[0]) / bin_width))
-fit_bins = [n_fit_bins, fit_window[0], fit_window[1]]
+summary_bin_width = 3.0
 
-summary_bin_width = 5.0
+bin_width = (signal_window[1] - signal_window[0]) / n_bins
+n_fit_bins = int(round((fit_window[1] - fit_window[0]) / summary_bin_width))
+fit_bins = [n_fit_bins, fit_window[0], fit_window[1]]
 
 lxy1=50
 lxy2 = 50
@@ -113,5 +116,6 @@ dcb_n1 = (2, 1, 50)
 dcb_alpha2 = (2, 1, 20)
 dcb_n2 = (2, 1, 50)
 
-bernstein_coeff = (0, 10000)
-bernstein_coeff_card = (0, 10000)
+bernstein_coeff = (0, 100)
+bernstein_coeff_start = 50
+bernstein_coeff_card = (0, 100)

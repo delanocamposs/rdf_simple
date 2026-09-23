@@ -1,5 +1,5 @@
 import ROOT
-from ggHparameters import signal_window, lower_sb, upper_sb, dcb_mean, dcb_sigma, dcb_alpha1, dcb_n1, dcb_alpha2, dcb_n2, bernstein_coeff, n_bins
+from ggHparameters import signal_window, lower_sb, upper_sb, dcb_mean, dcb_sigma, dcb_alpha1, dcb_n1, dcb_alpha2, dcb_n2, bernstein_coeff, bernstein_coeff_start, n_bins
 ROOT.gROOT.SetBatch(False)
 
 
@@ -43,6 +43,7 @@ class Fitter(object):
         cList = ROOT.RooArgList()
         for i in range(0,order):
             self.w.factory(f"c_{i}[{bernstein_coeff[0]},{bernstein_coeff[1]}]")
+            self.w.var("c_"+str(i)).setVal(bernstein_coeff_start)
             cList.add(self.w.var("c_"+str(i)))
         bernsteinPDF = ROOT.RooBernsteinFast(order)(name,name,self.w.var(poi),cList)
         getattr(self.w,'import')(bernsteinPDF)
@@ -113,6 +114,7 @@ class Fitter(object):
         cList = ROOT.RooArgList()
         for i in range(0,order):
             self.w.factory(f"c_{i}[{bernstein_coeff[0]},{bernstein_coeff[1]}]")
+            self.w.var("c_"+str(i)).setVal(bernstein_coeff_start)
             cList.add(self.w.var("c_"+str(i)))
         bernsteinPDF = ROOT.RooBernsteinFast(order)(bname,bname,self.w.var(poi),cList)
         doubleCB = ROOT.RooDoubleCB(dcbname,dcbname,self.w.var(poi),self.w.var("mean"),self.w.var("sigma"),self.w.var("alpha1"),self.w.var("n1"),self.w.var("alpha2"),self.w.var("n2"))

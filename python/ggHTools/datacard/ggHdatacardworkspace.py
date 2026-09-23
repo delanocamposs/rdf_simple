@@ -139,11 +139,11 @@ class DatacardWorkspace:
         histogram=f.Get(histoName)
         if not lumi:
             events=histogram.Integral()
-            self.contributions.append({'name':name,'pdf':pdfName,'ID':ID,'yield':events})
         else:
             events=histogram.Integral()*self.luminosity
-            self.contributions.append({'name':name,'pdf':pdfName,'ID':ID,'yield':events})
+        self.contributions.append({'name':name,'pdf':pdfName,'ID':ID,'yield':events})
         f.Close()
+        return float(events)
 
 
     def makeCard(self):

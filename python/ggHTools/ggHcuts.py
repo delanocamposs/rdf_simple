@@ -1,4 +1,4 @@
-from ggHparameters import (dxy_min, dxy_max, signal_xsec, BR,lower_sb, upper_sb, delta_r_cut)
+from ggHparameters import (dxy_min, dxy_max, signal_xsec, BR,lower_sb, upper_sb, delta_r_cut, signal_window)
 
 #basic HLT passed cut
 def trigger():
@@ -56,13 +56,19 @@ def sidebands(mass, lower=lower_sb, upper=upper_sb):
 def combine(*cuts):
     return " && ".join(f"({c})" for c in cuts if c)
 
+def preselected(mass):
+    return combine(trigger_and_pT(mass),dxy_valid(mass),preselection(mass),deltaR(mass))
+
+def fails_photon_id(mass,workingpoint):
+    return f"!({photon_id(mass,workingpoint)})"
+
 #data cuts
 def background_selection(mass, workingpoint):
-    return combine(trigger_and_pT(mass),dxy_valid(mass),preselection(mass),deltaR(mass),photon_id(mass, workingpoint),sidebands(mass))
+    return combine(preselected(mass),photon_id(mass, workingpoint),sidebands(mass))
 
 #signal MC cuts
 def signal_selection(mass, workingpoint):
-    return combine(trigger_and_pT(mass),dxy_valid(mass),preselection(mass),deltaR(mass),photon_id(mass,workingpoint),pileup())
+    return combine(preselected(mass),photon_id(mass,workingpoint),pileup())
 
 
 def mass_variable(mass):
@@ -72,3 +78,6 @@ def mass_window(mass,window):
     low,high=window
     variable=mass_variable(mass)
     return f"{variable}>={low} && {variable}<={high}"
+
+def signal_region(mass,window=signal_window):
+    return mass_window(mass,window)

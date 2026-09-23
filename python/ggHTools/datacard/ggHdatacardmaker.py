@@ -1,10 +1,12 @@
 from datacard import datacardtools
 from datacard import ggHfitter
 from datacard.ggHdatacardworkspace import DatacardWorkspace
-from ggHparameters import order_fit, order_gen, smear_resolution, lumi, xsec_unc, pdf_alphas_unc, lumi_unc, recommended_photon_id
+from ggHparameters import order_fit, order_gen, smear_resolution, lumi, xsec_unc, pdf_alphas_unc, lumi_unc, recommended_photon_id, pseudodata_seed, inject_r
 import ROOT
 import subprocess
 import numpy as np
+import json
+import zlib
 
 ROOT.gROOT.SetBatch(False)
 ROOT.RooMsgService.instance().setGlobalKillBelow(ROOT.RooFit.ERROR)
@@ -22,8 +24,14 @@ def cleanup(year, finalstate, physics, mass, lifetime):
     subprocess.run(["mv", f"sig_parameters_m{mass}_ct{lifetime}_{year}.json", f"{output_dir}/"])
     subprocess.run(["mv", f"data_obs_m{mass}_ct{lifetime}_{year}.root", f"{output_dir}/"])
     subprocess.run(["mv", f"rate_histos_m{mass}_ct{lifetime}_{year}.root", f"{output_dir}/"])
+    subprocess.run(["mv", f"pseudodata_m{mass}_ct{lifetime}_{year}.json", f"{output_dir}/"])
     
-def main(paths, isMC, trees, var, period, bins, lifetime, mass,finalstate="4g", physics="ggH", order_fit=order_fit,order_gen=order_gen, lumi_scaling=1, signal_lumis=None):
+def pseudodata_rng_seed(mass, lifetime, year, base_seed):
+    token=f"m{mass}_ct{lifetime}_{year}"
+    return zlib.crc32(token.encode())+int(base_seed)
+
+
+def main(paths, isMC, trees, var, period, bins, lifetime, mass,finalstate="4g", physics="ggH", order_fit=order_fit,order_gen=order_gen, lumi_scaling=1, signal_lumis=None, inject_r=inject_r, pseudodata_seed=pseudodata_seed):
     ROOT.gROOT.SetBatch(True)
     year=period
     photon_id = recommended_photon_id(period)
@@ -66,6 +74,9 @@ def main(paths, isMC, trees, var, period, bins, lifetime, mass,finalstate="4g", 
     N_sb=int(round(N_sb_raw))
     if not np.isclose(N_sb_raw, N_sb, rtol=0.0, atol=1e-9):
         raise ValueError("background sideband yield must be an unweighted integer count, found {}".format(N_sb_raw))
+    inject_r=float(inject_r)
+    if inject_r<0.0:
+        raise ValueError("inject_r must be nonnegative, found {}".format(inject_r))
     dcm_year = DatacardWorkspace(finalstate, period, lifetime, mass, lumi[year], physics)
 
     signal_hist_name = "signal_combined"
@@ -86,6 +97,18 @@ def main(paths, isMC, trees, var, period, bins, lifetime, mass,finalstate="4g", 
     ggHfitter.fitBKG(th1d_filename, th1d_histos[background_index], f"fit_bkg_m{mass}_ct{lifetime}_{year}_gen.root", order=order_gen)
     datacardtools.extract_JSON(f"fit_bkg_m{mass}_ct{lifetime}_{year}_gen.root", "w", f"bkg_parameters_m{mass}_ct{lifetime}_{year}_gen.json")
 
+    alpha_source="bernstein_fit"
+    N_presel_sb=None
+    N_presel_sr=None
+    if N_sb==0:
+        N_presel_sb,N_presel_sr=datacardtools.preselected_counts(paths[background_index], trees[background_index], mass, photon_id)
+        if N_presel_sb>0 and N_presel_sr>0:
+            ratio=N_presel_sr/N_presel_sb
+            alpha_source="preselected_counts"
+            print(f"{teal}empty ID'd sideband: gmN alpha taken from ID-vetoed preselected counts, N_pre_SR={N_presel_sr} N_pre_SB={N_presel_sb} -> alpha={ratio:.4f}{reset}")
+        else:
+            print(f"{teal}empty ID'd sideband but preselected counts are unusable (SR={N_presel_sr}, SB={N_presel_sb}), keeping the fitted alpha={ratio:.4f}{reset}")
+
     bkg_rate=N_sb*ratio
 
     ggHfitter.fitSIG(th1d_filename, signal_hist_name, f"fit_sig_m{mass}_ct{lifetime}_{year}.root")
@@ -100,17 +123,27 @@ def main(paths, isMC, trees, var, period, bins, lifetime, mass,finalstate="4g", 
     dcm_year.addSystematic(name=f"xsec_unc_m{mass}_ct{lifetime}_{year}", kind = "lnN", values={"signal":f"{1-xsec_quad_down}/{1+xsec_quad_up}"})
     dcm_year.addSystematic(name=f"lumi_unc_m{mass}_ct{lifetime}_{year}", kind = "lnN", values={"signal":"{}".format(1+lumi_unc[year])})
     dcm_year.addSystematic(name=f"PDF_alphas_unc_m{mass}_ct{lifetime}_{year}", kind = "lnN", values={"signal":"{}".format(1+PDF_alphas_unc)})
-    #dcm_year.addSystematic(name=f"bkg_rate_m{mass}_ct{lifetime}_{year}", kind = "rateParam", values=[dcm_year.tag, "background", "1", "[0,10]"])
-    dcm_year.addGmN(name=f"bkg_sideband_stat_m{mass}_ct{lifetime}_{year}", count=N_sb, values={"background":ratio})
+    if N_sb==0:
+        dcm_year.addGmN(name=f"bkg_sideband_stat_m{mass}_ct{lifetime}_{year}", count=N_sb, values={"background":ratio})
+        bkg_constraint="gmN"
+    else:
+        dcm_year.addSystematic(name=f"bkg_rate_m{mass}_ct{lifetime}_{year}", kind="rateParam", values=[dcm_year.tag, "background", "1", "[0,10]"])
+        bkg_constraint="rateParam"
 
 #yields are added by integrating the histograms for sig and bkg
     dcm_year.addFixedYield(name="background", ID=1, value=bkg_rate)
-    dcm_year.addFixedYieldFromFile(name="signal", ID=0, filename=th1d_filename, histoName=signal_hist_name, lumi=(signal_lumis is None))
+    sig_rate=dcm_year.addFixedYieldFromFile(name="signal", ID=0, filename=th1d_filename, histoName=signal_hist_name, lumi=(signal_lumis is None))
 
 #this part is just for creating fake data inside the SR (see datacardtools.py for it_
-    data_year_name = datacardtools.generate_data_hist(f"fit_bkg_m{mass}_ct{lifetime}_{year}_gen.root", bins_num=bins[0], norm=bkg_rate, output_name=f"data_obs_m{mass}_ct{lifetime}_{year}.root")
+    seed=pseudodata_rng_seed(mass, lifetime, year, pseudodata_seed)
+    injected_signal=inject_r*sig_rate
+    data_year_name, expected_total, observed_total = datacardtools.generate_data_hist(f"fit_bkg_m{mass}_ct{lifetime}_{year}_gen.root", bins_num=bins[0], norm=bkg_rate, output_name=f"data_obs_m{mass}_ct{lifetime}_{year}.root", signal_file=f"fit_sig_m{mass}_ct{lifetime}_{year}.root", signal_norm=injected_signal, seed=seed)
+    pseudodata_record={"mass":mass,"lifetime":lifetime,"year":year,"photon_id":photon_id,"seed":seed,"N_sideband":N_sb,"sr_sb_ratio":ratio,"alpha_source":alpha_source,"bkg_constraint":bkg_constraint,"N_presel_sideband":N_presel_sb,"N_presel_signal_region":N_presel_sr,"bkg_rate":bkg_rate,"sig_rate":sig_rate,"inject_r":inject_r,"injected_signal_events":injected_signal,"expected_total":expected_total,"observed_total":observed_total}
+    with open(f"pseudodata_m{mass}_ct{lifetime}_{year}.json", "w") as record_file:
+        json.dump(pseudodata_record, record_file, indent=4)
 
 # add in the fake data to the card, make the card and clean up all the file junk
     dcm_year.importBinnedData(data_year_name, "h_pdf__mass", ["mass"])
     dcm_year.makeCard()
     cleanup(year, finalstate, physics, mass, lifetime)
+    return pseudodata_record

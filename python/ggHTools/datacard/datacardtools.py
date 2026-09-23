@@ -69,6 +69,15 @@ def sig_bkg_histos(files, isMC, trees, mass, var, output_name, bins, photon_id,h
     output_file.Close()
     return output_name, histo_names, histo_obj
 
+def preselected_counts(path, tree, mass, photon_id):
+
+    dataframe=ROOT.RDataFrame(tree, path)
+    base=dataframe.Filter(cuts.preselected(mass)).Filter(cuts.fails_photon_id(mass, photon_id))
+    sideband=base.Filter(cuts.sidebands(mass)).Count()
+    signal_region=base.Filter(cuts.signal_region(mass)).Count()
+    return int(sideband.GetValue()), int(signal_region.GetValue())
+
+
 def extract_JSON(root_filename, workspace_name, json_filename):
 
 ### makes a json file by extracting initial parameters from rooworkspace
@@ -91,30 +100,65 @@ def extract_JSON(root_filename, workspace_name, json_filename):
     f.Close()
 
 
-def generate_data_hist(file, bins_num, norm, output_name):
-
-### generates the fake psuedo data from random poisson sampling of the background 
+def expected_hist(file, name, bins_num, norm, pdf_name="model", var_name="mass"):
 
     f=ROOT.TFile.Open(file)
     w=f.Get("w")
-    pdf =w.pdf("model")
-    x=w.var("mass")
-    h_pdf =pdf.createHistogram("h_pdf", x, ROOT.RooFit.Binning(bins_num))
-    h_pdf1 =pdf.createHistogram("h_pdf1", x, ROOT.RooFit.Binning(bins_num))
-    h_pdf.Scale(norm)
-    h_pdf1.Scale(norm)
-    total_expected = float(h_pdf.Integral())
-    if total_expected < 1:
+    if not w:
+        raise ValueError("no workspace 'w' in {}".format(file))
+    pdf=w.pdf(pdf_name)
+    x=w.var(var_name)
+    if not pdf or not x:
+        raise ValueError("workspace in {} is missing pdf '{}' or variable '{}'".format(file, pdf_name, var_name))
+    histogram=pdf.createHistogram(name, x, ROOT.RooFit.Binning(bins_num))
+    histogram.SetDirectory(0)
+    integral=float(histogram.Integral())
+    if integral<=0.0:
+        raise ValueError("pdf '{}' in {} integrates to {} over the histogram range".format(pdf_name, file, integral))
+    histogram.Scale(norm/integral)
+    f.Close()
+    return histogram
+
+
+def generate_data_hist(file, bins_num, norm, output_name, signal_file=None, signal_norm=0.0, seed=None):
+
+    expected=expected_hist(file, "h_pdf1", bins_num, norm)
+    if signal_file is not None and signal_norm>0.0:
+        signal_expected=expected_hist(signal_file, "h_sig", bins_num, signal_norm)
+        expected.Add(signal_expected)
+    toy=expected.Clone("h_pdf")
+    toy.SetDirectory(0)
+    total_expected=float(expected.Integral())
+    if total_expected<1:
         print("[generate_data_hist] WARNING: expected total events is < 1. A fully empty toy histogram is likely and can be statistically consistent.")
-    output_file = ROOT.TFile(output_name, "RECREATE")
-    h_pdf1.Write()
-    for i in range(1, h_pdf.GetNbinsX()+1):
-        density=h_pdf.GetBinContent(i)
-        bw=h_pdf.GetXaxis().GetBinWidth(i)
-        h_pdf.SetBinContent(i, np.random.poisson(density))
-    h_pdf.Write()
+    rng=np.random.default_rng(seed)
+    for i in range(1, toy.GetNbinsX()+1):
+        toy.SetBinContent(i, float(rng.poisson(expected.GetBinContent(i))))
+        toy.SetBinError(i, 0.0)
+    output_file=ROOT.TFile(output_name, "RECREATE")
+    output_file.cd()
+    expected.Write("h_pdf1__mass")
+    toy.Write("h_pdf__mass")
     output_file.Close()
-    return output_name
+    return output_name, total_expected, float(toy.Integral())
+
+
+def fitted_poi(fitdiagnostics_file, poi="r", fit="fit_s"):
+
+    f=ROOT.TFile.Open(fitdiagnostics_file)
+    if not f or f.IsZombie():
+        return None
+    result=f.Get(fit)
+    if not result:
+        f.Close()
+        return None
+    parameter=result.floatParsFinal().find(poi)
+    if not parameter:
+        f.Close()
+        return None
+    values=(parameter.getVal(), parameter.getErrorLo(), parameter.getErrorHi(), result.status(), result.covQual())
+    f.Close()
+    return values
 
 
 def clopper_pearson(X, n, alpha=0.05):

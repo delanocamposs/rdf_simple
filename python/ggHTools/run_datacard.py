@@ -15,8 +15,8 @@ def combine_workflow(year, mass, lifetime, finalstate, physics):
     card_root = f"datacard_{physics}_{finalstate}_m{mass}_ct{lifetime}_{year}.root"
 
     subprocess.run(["text2workspace.py", card_txt, "-o", card_root], check=True)
-    subprocess.run(["combine", card_root, "-M", "MultiDimFit", "--saveWorkspace", "--robustFit", "1", "--cminDefaultMinimizerStrategy", "2", "-m", "125"], check=True)
-    subprocess.run(["combine", card_root, "-M", "FitDiagnostics", "--saveShapes", "--saveWorkspace", "--saveWithUncertainties", "--saveNormalizations", "--robustFit", "1", "--cminDefaultMinimizerStrategy", "2", "-m", "125"], check=True)
+    subprocess.run(["combine", card_root, "-M", "MultiDimFit", "--saveWorkspace", "--robustFit", "1", "--cminDefaultMinimizerStrategy", "0", "-m", "125"], check=True)
+    subprocess.run(["combine", card_root, "-M", "FitDiagnostics", "--saveShapes", "--saveWorkspace", "--saveWithUncertainties", "--saveNormalizations", "--robustFit", "1", "--cminDefaultMinimizerStrategy", "0", "-m", "125"], check=True)
     subprocess.run(["mv", "higgsCombineTest.MultiDimFit.mH125.root", f"higgsCombineTest.MultiDimFit.mH125_m{mass}_ct{lifetime}_{year}.root"], check=True)
     subprocess.run(["mv", "fitDiagnosticsTest.root", f"fitDiagnosticsTest_m{mass}_ct{lifetime}_{year}.root"], check=True)
 
